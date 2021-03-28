@@ -20,7 +20,8 @@
 			const buffer = await response.arrayBuffer();
 			const obj = await WebAssembly.instantiate(buffer, go.importObject)
 			await go.run(obj.instance);
-			await getDb().then(b => setDB(b));
+			const b = await getDb();
+			setDB(b);
 			document.getElementById('ip').removeAttribute("readOnly");
 		}
 		fetchAndInstantiate();
