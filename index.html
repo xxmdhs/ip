@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>本地 ip 地址查询</title>
+	<script src="wasm_exec.js"></script>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/xmdhs/searchqanda/style.css">
+	<script>
+		async function getDb() {
+			let f = await fetch("https://cdn.jsdelivr.net/gh/lionsoul2014/ip2region/data/ip2region.db")
+			let b = await f.arrayBuffer()
+			return new Uint8Array(b);
+		}
+		const go = new Go();
+		WebAssembly.instantiateStreaming(fetch("ip.wasm"), go.importObject)
+			.then((result) => {
+				go.run(result.instance);
+				getDb().then(b => setDB(b));
+			});
+		function Form() {
+			let ip = document.querySelector("#ip").value.toString();
+			getIp(ip, (v) => {
+				let s = v.Country + v.Province + v.City + v.ISP
+				s = s.replace(/0/g, "")
+				document.getElementById("ipInfo").innerText = s;
+			})
+			return false;
+		}
+		window.addEventListener("load", () => {
+			let f = document.getElementById("getip");
+			f.addEventListener("submit", function (event) {
+				event.preventDefault();
+				Form();
+			});
+		})
+	</script>
+</head>
+
+<body>
+	<div class="container-lg px-3 my-5 markdown-body">
+		<h1>本地 ip 地址查询</h1>
+		<form id="getip">
+			<input type="search" id="ip" placeholder="1.1.1.1" name="ip"
+				pattern="^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$">
+			<input type="submit" value="查询">
+		</form>
+		<br>
+		<div id="ipInfo"></div>
+		<hr>
+		<details>
+			<summary>说明</summary>
+			<p>所有查询均在本地进行查询。</p>
+			<p>数据库来自 https://github.com/lionsoul2014/ip2region</p>
+		</details>
+	</div>
+</body>
+
+</html>
