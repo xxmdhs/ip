@@ -15,11 +15,16 @@
 			return new Uint8Array(b);
 		}
 		const go = new Go();
-		WebAssembly.instantiate(fetch("./ip.wasm"), go.importObject)
-			.then((result) => {
-				go.run(result.instance);
-				getDb().then(b => setDB(b));
-			});
+		async function fetchAndInstantiate() {
+			const response = await fetch("./ip.wasm");
+			const buffer = await response.arrayBuffer();
+			const obj = await WebAssembly.instantiate(buffer, go.importObject)
+				.then((result) => {
+					go.run(result.instance);
+					getDb().then(b => setDB(b));
+				});
+		}
+		fetchAndInstantiate();
 		function Form() {
 			let ip = document.querySelector("#ip").value.toString();
 			getIp(ip, (v) => {
