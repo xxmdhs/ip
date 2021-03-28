@@ -19,10 +19,8 @@
 			const response = await fetch("./ip.wasm");
 			const buffer = await response.arrayBuffer();
 			const obj = await WebAssembly.instantiate(buffer, go.importObject)
-				.then((result) => {
-					go.run(result.instance);
-					getDb().then(b => setDB(b));
-				});
+			go.run(obj.instance);
+			await getDb().then(b => setDB(b));
 		}
 		fetchAndInstantiate();
 		function Form() {
