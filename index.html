@@ -19,7 +19,7 @@
 			const response = await fetch("./ip.wasm");
 			const buffer = await response.arrayBuffer();
 			const obj = await WebAssembly.instantiate(buffer, go.importObject)
-			await go.run(obj.instance);
+		    go.run(obj.instance);
 			const b = await getDb();
 			setDB(b);
 			document.getElementById('ip').removeAttribute("readOnly");
