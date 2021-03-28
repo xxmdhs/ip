@@ -6,7 +6,7 @@
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width,initial-scale=1">
 	<title>本地 ip 地址查询</title>
-	<script src="wasm_exec.js"></script>
+	<script src="./wasm_exec.js"></script>
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/xmdhs/searchqanda/style.css">
 	<script>
 		async function getDb() {
@@ -15,7 +15,7 @@
 			return new Uint8Array(b);
 		}
 		const go = new Go();
-		WebAssembly.instantiateStreaming(fetch("ip.wasm"), go.importObject)
+		WebAssembly.instantiateStreaming(fetch("./ip.wasm"), go.importObject)
 			.then((result) => {
 				go.run(result.instance);
 				getDb().then(b => setDB(b));
