@@ -15,7 +15,7 @@
 			return new Uint8Array(b);
 		}
 		const go = new Go();
-		WebAssembly.instantiateStreaming(fetch("./ip.wasm"), go.importObject)
+		WebAssembly.instantiate(fetch("./ip.wasm"), go.importObject)
 			.then((result) => {
 				go.run(result.instance);
 				getDb().then(b => setDB(b));
