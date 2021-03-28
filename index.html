@@ -21,6 +21,7 @@
 			const obj = await WebAssembly.instantiate(buffer, go.importObject)
 			go.run(obj.instance);
 			await getDb().then(b => setDB(b));
+			document.getElementById('ip').removeAttribute("readOnly");
 		}
 		fetchAndInstantiate();
 		function Form() {
@@ -46,7 +47,7 @@
 	<div class="container-lg px-3 my-5 markdown-body">
 		<h1>本地 ip 地址查询</h1>
 		<form id="getip">
-			<input type="search" id="ip" placeholder="1.1.1.1" name="ip"
+			<input type="search" id="ip" placeholder="1.1.1.1" name="ip" readonly="readonly"
 				pattern="^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$">
 			<input type="submit" value="查询">
 		</form>
