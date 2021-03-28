@@ -19,7 +19,7 @@
 			const response = await fetch("./ip.wasm");
 			const buffer = await response.arrayBuffer();
 			const obj = await WebAssembly.instantiate(buffer, go.importObject)
-		    go.run(obj.instance);
+			go.run(obj.instance);
 			const b = await getDb();
 			setDB(b);
 			document.getElementById('ip').removeAttribute("readOnly");
@@ -48,7 +48,7 @@
 	<div class="container-lg px-3 my-5 markdown-body">
 		<h1>本地 ip 地址查询</h1>
 		<form id="getip">
-			<input type="search" id="ip" placeholder="1.1.1.1" name="ip" readonly="readonly"
+			<input type="search" id="ip" placeholder="1.1.1.1" name="ip" readonly="readonly" title="ipv4"
 				pattern="^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$">
 			<input type="submit" value="查询">
 		</form>
@@ -57,8 +57,8 @@
 		<hr>
 		<details>
 			<summary>说明</summary>
-			<p>所有查询均在本地进行查询。</p>
-			<p>数据库来自 https://github.com/lionsoul2014/ip2region</p>
+			<p>所有查询均在本地进行，不会发送任何请求到其他地方。</p>
+			<p>数据库来自 <a href="https://github.com/lionsoul2014/ip2region">https://github.com/lionsoul2014/ip2region</a></p>
 		</details>
 	</div>
 </body>
