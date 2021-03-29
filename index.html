@@ -27,6 +27,9 @@
 		fetchAndInstantiate();
 		function Form() {
 			let ip = document.querySelector("#ip").value.toString();
+			if (ip == "") {
+				return;
+			}
 			getIp(ip, (v) => {
 				let s = v.Country + v.Province + v.City + v.ISP
 				s = s.replace(/0/g, "")
@@ -58,7 +61,8 @@
 		<details>
 			<summary>说明</summary>
 			<p>所有查询均在本地进行，不会发送任何请求到其他地方。</p>
-			<p>数据库来自 <a href="https://github.com/lionsoul2014/ip2region">https://github.com/lionsoul2014/ip2region</a></p>
+			<p>数据库来自 <a href="https://github.com/lionsoul2014/ip2region">https://github.com/lionsoul2014/ip2region</a>
+			</p>
 		</details>
 	</div>
 </body>
