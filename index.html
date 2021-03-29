@@ -11,6 +11,9 @@
 	<script>
 		async function getDb() {
 			let f = await fetch("https://cdn.jsdelivr.net/gh/lionsoul2014/ip2region/data/ip2region.db")
+			if (f.status != 200) {
+				return new Error(f.statusText)
+			}
 			let b = await f.arrayBuffer()
 			return new Uint8Array(b);
 		}
@@ -20,7 +23,14 @@
 			const buffer = await response.arrayBuffer();
 			const obj = await WebAssembly.instantiate(buffer, go.importObject)
 			go.run(obj.instance);
-			const b = await getDb();
+			const b;
+			try {
+				b = await getDb();
+			} catch (error) {
+				alert("获取 ip 数据库失败，详见 console");
+				console.warn(error);
+				return;
+			}
 			setDB(b);
 			document.getElementById('ip').removeAttribute("readOnly");
 		}
