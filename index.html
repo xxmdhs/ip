@@ -23,7 +23,7 @@
 			const buffer = await response.arrayBuffer();
 			const obj = await WebAssembly.instantiate(buffer, go.importObject)
 			go.run(obj.instance);
-			const b;
+			let b;
 			try {
 				b = await getDb();
 			} catch (error) {
