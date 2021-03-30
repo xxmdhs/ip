@@ -9,6 +9,13 @@
 	<script src="./wasm_exec.js"></script>
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/xmdhs/searchqanda/style.css">
 	<script>
+		if (window.fetch == null || window.WebAssembly == null) {
+			window.onload = function () {
+				document.getElementById("ipInfo").innerHTML = "请更新浏览器，<a href=\"https://www.google.cn/intl/zh-CN/chrome/\">https://www.google.cn/intl/zh-CN/chrome/</a>";
+			}
+		}
+	</script>
+	<script>
 		async function getDb() {
 			let f = await fetch("https://cdn.jsdelivr.net/gh/lionsoul2014/ip2region/data/ip2region.db")
 			if (f.status != 200) {
@@ -27,12 +34,13 @@
 			try {
 				b = await getDb();
 			} catch (error) {
-				alert("获取 ip 数据库失败，详见 console");
+				document.getElementById("ipInfo").innerText = "获取 ip 数据库失败\n" + error;
 				console.warn(error);
 				return;
 			}
 			setDB(b);
 			document.getElementById('ip').removeAttribute("readOnly");
+			document.getElementById("ipInfo").innerText = "";
 		}
 		fetchAndInstantiate();
 		function Form() {
@@ -66,7 +74,7 @@
 			<input type="submit" value="查询">
 		</form>
 		<br>
-		<div id="ipInfo"></div>
+		<div id="ipInfo">加载 ip 数据库中...</div>
 		<hr>
 		<details>
 			<summary>说明</summary>
