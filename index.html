@@ -24,7 +24,12 @@
 			let b = await f.arrayBuffer()
 			return new Uint8Array(b);
 		}
-		const go = new Go();
+		let go;
+		try {
+			go = new Go();
+		} catch (error) {
+			document.getElementById("ipInfo").innerHTML = "请更新浏览器，<a href=\"https://www.google.cn/intl/zh-CN/chrome/\">https://www.google.cn/intl/zh-CN/chrome/</a>";
+		}
 		async function fetchAndInstantiate() {
 			const response = await fetch("./ip.wasm");
 			const buffer = await response.arrayBuffer();
