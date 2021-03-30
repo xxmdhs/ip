@@ -12,7 +12,7 @@
 		async function getDb() {
 			let f = await fetch("https://cdn.jsdelivr.net/gh/lionsoul2014/ip2region/data/ip2region.db")
 			if (f.status != 200) {
-				return new Error(f.statusText)
+				throw new Error(f.statusText)
 			}
 			let b = await f.arrayBuffer()
 			return new Uint8Array(b);
