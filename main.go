@@ -7,6 +7,7 @@ import (
 func main() {
 	js.Global().Set("setDB", js.FuncOf(setDB))
 	js.Global().Set("getIp", js.FuncOf(getIp))
+	js.Global().Set("ubb2html", js.FuncOf(ubb2htm))
 	select {}
 }
 
@@ -46,4 +47,11 @@ func getIp(this js.Value, args []js.Value) interface{} {
 		args[1].Invoke(js.ValueOf(m))
 	}()
 	return js.ValueOf(nil)
+}
+
+func ubb2htm(this js.Value, args []js.Value) interface{} {
+	if len(args) != 1 {
+		panic("len(args) != 1")
+	}
+	return js.ValueOf(ubb2html(args[0].String()))
 }
