@@ -8,6 +8,7 @@ func main() {
 	js.Global().Set("setDB", js.FuncOf(setDB))
 	js.Global().Set("getIp", js.FuncOf(getIp))
 	js.Global().Set("ubb2html", js.FuncOf(ubb2htm))
+	js.Global().Set("reg", js.FuncOf(reg))
 	select {}
 }
 
