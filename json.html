@@ -1,0 +1,20 @@
+<script src="./wasm_exec.js"></script>
+<script>
+    if (window.fetch == null || window.WebAssembly == null) {
+        alert("请更新浏览器")
+    }
+</script>
+<script>
+    let go;
+    try {
+        go = new Go();
+    } catch (error) {
+        alert("请更新浏览器")
+    }
+    (async () => {
+        const response = await fetch("./json.wasm");
+        const buffer = await response.arrayBuffer();
+        const obj = await WebAssembly.instantiate(buffer, go.importObject)
+        go.run(obj.instance);
+    })()
+</script>
