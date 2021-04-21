@@ -1,3 +1,5 @@
+// +build !wasm-json
+
 package main
 
 import (
