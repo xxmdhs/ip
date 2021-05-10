@@ -39,16 +39,23 @@
             let r = document.querySelector("#reg").value;
             let t = document.querySelector("#vehicle").checked;
             let l = reg(r, text, t);
+            let f = document.getElementById("text");
             if (typeof (l.err) != "undefined") {
                 text = l.err;
-            } else {
-                text = "";
-                for (let i = 0; i < l.length; ++i) {
-                    text += l[i] + "\n";
-                }
+                f.innerText = text;
+                return
             }
-            let f = document.getElementById("text");
-            f.innerText = text;
+            let div = document.createElement("div")
+
+            if (t) {
+                for (const a of l) {
+                    div.appendChild(newTable(a))
+                }
+            } else {
+                div.appendChild(newTable(l))
+            }
+
+            f.innerHTML = div.innerHTML;
             return false;
         }
         window.addEventListener("load", () => {
@@ -58,14 +65,35 @@
                 Form();
             });
         })
+        function newTable(list) {
+            let table = document.createElement("table")
+            let tbody = document.createElement("tbody")
+            if (typeof list == "string") {
+                tbody.appendChild(newtr(t))
+            } else {
+                for (const t of list) {
+                    tbody.appendChild(newtr(t))
+                }
+            }
+            table.appendChild(tbody)
+            return table
+        }
+
+        function newtr(v) {
+            let tr = document.createElement("tr")
+            let td = document.createElement("td")
+            td.innerText = v
+            tr.appendChild(td)
+            return tr
+        }
     </script>
 </head>
 
 <body>
     <div class="container-lg px-3 my-5 markdown-body">
         <form id="info">
-            <textarea id="confirmationText" autocomplete=on class="text" cols="86" rows="20"
-                name="confirmationText" style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
+            <textarea id="confirmationText" autocomplete=on class="text" cols="86" rows="20" name="confirmationText"
+                style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
             <input type="search" id="reg">
             <input type="checkbox" id="vehicle" value="all">all<br>
             <input type="submit" value="look" class="submitButton">
