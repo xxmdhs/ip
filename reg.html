@@ -68,12 +68,8 @@
         function newTable(list) {
             let table = document.createElement("table")
             let tbody = document.createElement("tbody")
-            if (typeof list == "string") {
+            for (const t of list) {
                 tbody.appendChild(newtr(t))
-            } else {
-                for (const t of list) {
-                    tbody.appendChild(newtr(t))
-                }
             }
             table.appendChild(tbody)
             return table
