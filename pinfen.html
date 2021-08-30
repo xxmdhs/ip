@@ -30,7 +30,9 @@
                 }
             }
             let a = {}
+            let all = 0
             for (const v of d) {
+                all += v.Num
                 let n = a[v.Uid]
                 if (n == undefined) {
                     a[v.Uid] = { num: v.Num, uid: v.Uid, name: v.Name }
@@ -42,6 +44,7 @@
             for (const c in a) {
                 b.push(a[c])
             }
+            b.push({ num: all, uid: "all", name: "总和"})
             b.sort((a, b) => { return b.num - a.num })
             d.sort((a, b) => { return b.Num - a.Num })
             let s = JSON.stringify(d, null, 4);
@@ -76,7 +79,7 @@
             <textarea id="b" autocomplete=off class="text" cols="86" rows="20" name="confirmationText"
                 style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
             <textarea id="a" autocomplete=off class="text" cols="86" rows="20" name="confirmationText"
-            style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
+                style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
         </div>
     </div>
 </body>
