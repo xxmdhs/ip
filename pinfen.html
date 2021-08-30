@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>评分</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/xmdhs/searchqanda/style.css">
+    <script>
+        function Form() {
+            let text = document.querySelector("#confirmationText").value;
+            if (text == "") {
+                return;
+            }
+            let type = document.querySelector("#reg").value;
+            let data = JSON.parse(text);
+            let d = []
+            for (const a of data) {
+                for (const b of a.Link) {
+                    if (b.Type == type) {
+                        d.push({
+                            Name: b.Name,
+                            Uid: b.Uid,
+                            Num: b.Num,
+                            Link: b.Link
+                        })
+                    }
+                }
+            }
+            let a = {}
+            for (const v of d) {
+                let n = a[v.Uid]
+                if (n == undefined) {
+                    a[v.Uid] = { num: v.Num, uid: v.Uid, name: v.Name }
+                } else {
+                    a[v.Uid] = { num: v.Num + n.num, uid: v.Uid, name: v.Name }
+                }
+            }
+            let b = []
+            for (const c in a) {
+                b.push(a[c])
+            }
+            b.sort((a, b) => { return b.num - a.num })
+            d.sort((a, b) => { return b.Num - a.Num })
+            let s = JSON.stringify(d, null, 4);
+            let ss = JSON.stringify(b, null, 4);
+
+            document.querySelector("#b").value = s;
+            document.querySelector("#a").value = ss;
+
+            document.querySelector("#c").removeAttribute("style");
+            return false;
+        }
+        window.addEventListener("load", () => {
+            let f = document.getElementById("info");
+            f.addEventListener("submit", function (event) {
+                event.preventDefault();
+                Form();
+            });
+        })
+
+    </script>
+</head>
+
+<body>
+    <div class="container-lg px-3 my-5 markdown-body">
+        <form id="info">
+            <textarea id="confirmationText" autocomplete=off class="text" cols="86" rows="20" name="confirmationText"
+                style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
+            <input type="search" id="reg" value="宝石">
+            <input type="submit" class="submitButton">
+        </form>
+        <div id="c" style="display: none;">
+            <textarea id="b" autocomplete=off class="text" cols="86" rows="20" name="confirmationText"
+                style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
+            <textarea id="a" autocomplete=off class="text" cols="86" rows="20" name="confirmationText"
+            style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
+        </div>
+    </div>
+</body>
+
+</html>
