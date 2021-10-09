@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 )
@@ -15,14 +16,14 @@ type Mingyulab struct {
 	Mark          string  `json:"mark"`
 	Rarity        int     `json:"rarity"`
 	Slot          string  `json:"slot"`
-	SubStat1Type  string  `json:"subStat1Type,omitempty"`
-	SubStat1Value float64 `json:"subStat1Value,omitempty"`
-	SubStat2Type  string  `json:"subStat2Type,omitempty"`
-	SubStat2Value float64 `json:"subStat2Value,omitempty"`
-	SubStat3Type  string  `json:"subStat3Type,omitempty"`
-	SubStat3Value float64 `json:"subStat3Value,omitempty"`
-	SubStat4Type  string  `json:"subStat4Type,omitempty"`
-	SubStat4Value float64 `json:"subStat4Value,omitempty"`
+	SubStat1Type  string  `json:"subStat1Type"`
+	SubStat1Value float64 `json:"subStat1Value"`
+	SubStat2Type  string  `json:"subStat2Type"`
+	SubStat2Value float64 `json:"subStat2Value"`
+	SubStat3Type  string  `json:"subStat3Type"`
+	SubStat3Value float64 `json:"subStat3Value"`
+	SubStat4Type  string  `json:"subStat4Type"`
+	SubStat4Value float64 `json:"subStat4Value"`
 }
 
 var ErrNOSupport = errors.New("do not support version")
@@ -59,6 +60,12 @@ func ToMlab(b []byte) ([]Mingyulab, error) {
 			for i, v := range v.NormalTags {
 				i, v := i, v
 				rv.Field(cache["SubStat"+strconv.Itoa(i+1)+"Type"]).SetString(subStat[v.Name])
+
+				if v.Value < 1 {
+					v.Value = v.Value * 100
+					v.Value = math.Round(v.Value*100) / 100
+				}
+
 				rv.Field(cache["SubStat"+strconv.Itoa(i+1)+"Value"]).SetFloat(v.Value)
 			}
 			*ml = append(*ml, minfo)

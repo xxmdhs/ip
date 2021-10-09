@@ -42,8 +42,25 @@
                 document.querySelector("#confirmationText").value = l.err;
                 return
             }
-            document.querySelector("#confirmationText").value = l;
-            return false;
+            let r = document.querySelector("#reg").value;
+
+            let j = JSON.parse(l)
+            let nj = []
+            for (const v of j) {
+                if (v["level"] > r){
+                    nj.push(v)
+                }
+            }
+            l = JSON.stringify(nj, null, 4)
+
+            var ea = document.createElement('a')
+            ea.download = "artifacts.json"
+            var blob = new Blob([l])
+            ea.href = URL.createObjectURL(blob)
+            document.body.appendChild(ea)
+            ea.click()
+            document.body.removeChild(ea)
+            return false
         }
         window.addEventListener("load", () => {
             let f = document.getElementById("info");
@@ -60,6 +77,8 @@
         <form id="info">
             <textarea id="confirmationText" autocomplete=on class="text" cols="86" rows="20" name="confirmationText"
                 style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
+                <span>过滤圣遗物等级</span>
+            <input type="number" id="reg" value="0">
             <input type="submit" value="转换" class="submitButton">
         </form>
         <div id="text"></div>
