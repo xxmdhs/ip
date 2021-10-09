@@ -1,4 +1,4 @@
-module gitee.com/xmdhs/ip
+module github.com/xxmdhs/ip
 
 go 1.16
 

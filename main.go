@@ -1,5 +1,3 @@
-// +build !wasm-json
-
 package main
 
 import (
@@ -11,6 +9,7 @@ func main() {
 	js.Global().Set("getIp", js.FuncOf(getIp))
 	js.Global().Set("ubb2html", js.FuncOf(ubb2htm))
 	js.Global().Set("reg", js.FuncOf(reg))
+	js.Global().Set("conver", js.FuncOf(con))
 	select {}
 }
 

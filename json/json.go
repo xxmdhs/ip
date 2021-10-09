@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/xmdhs/ip/json2struct"
+	"github.com/xxmdhs/ip/json2struct"
 
 	"github.com/hexops/vecty"
 	"github.com/hexops/vecty/elem"
