@@ -10,6 +10,7 @@ func main() {
 	js.Global().Set("ubb2html", js.FuncOf(ubb2htm))
 	js.Global().Set("reg", js.FuncOf(reg))
 	js.Global().Set("conver", js.FuncOf(con))
+	js.Global().Set("bil2dp", js.FuncOf(bil2dpw))
 	select {}
 }
 

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>bil2dp</title>
+    <script src="./wasm_exec.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/xmdhs/searchqanda/style.css">
+    <script>
+        if (window.fetch == null || window.WebAssembly == null) {
+            window.onload = function () {
+                document.getElementById("ipInfo").innerHTML = "请更新浏览器，<a href=\"https://www.google.cn/intl/zh-CN/chrome/\">https://www.google.cn/intl/zh-CN/chrome/</a>";
+            }
+        }
+    </script>
+    <script>
+        let go;
+        try {
+            go = new Go();
+        } catch (error) {
+            window.onload = function () {
+                document.getElementById("ipInfo").innerHTML = "请更新浏览器，<a href=\"https://www.google.cn/intl/zh-CN/chrome/\">https://www.google.cn/intl/zh-CN/chrome/</a>";
+            }
+        }
+        async function fetchAndInstantiate() {
+            const response = await fetch("./ip.wasm");
+            const buffer = await response.arrayBuffer();
+            const obj = await WebAssembly.instantiate(buffer, go.importObject)
+            go.run(obj.instance);
+        }
+        fetchAndInstantiate();
+        function Form() {
+            let text = document.querySelector("#confirmationText").value;
+            if (text == "") {
+                return;
+            }
+            let s = bil2dp(text);
+            let f = document.getElementById("text");
+            if (typeof (s.err) != "undefined") {
+                document.querySelector("#confirmationText").value = l.err;
+                return
+            }
+            document.querySelector("#confirmationText").value = s;
+            return false
+        }
+        window.addEventListener("load", () => {
+            let f = document.getElementById("info");
+            f.addEventListener("submit", function (event) {
+                event.preventDefault();
+                Form();
+            });
+        })
+    </script>
+</head>
+
+<body>
+    <div class="container-lg px-3 my-5 markdown-body">
+        <form id="info">
+            <textarea id="confirmationText" autocomplete=on class="text" cols="86" rows="20" name="confirmationText"
+                style="width: 100%;overflow: auto;word-break: break-all;"></textarea>
+            <input type="submit" value="转换" class="submitButton">
+        </form>
+        <div id="text"></div>
+    </div>
+</body>
+
+</html>
