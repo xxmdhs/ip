@@ -38,12 +38,13 @@ textarea {
 
 .wrapper {
   padding: 0 16px;
+  display: grid;
+  grid-template-columns: 1fr;
 }
 
 .col {
-  width: calc(100vw - 64px);
-  min-width: 400px;
   padding: 16px;
+  overflow: hidden;
 }
 
 .u-full-width {
@@ -52,11 +53,9 @@ textarea {
 
 @media all and (min-width: 900px) {
   .wrapper {
-    display: flex;
+    display: grid;
     max-width: 1280px;
     margin: 0 auto;
-  }
-  .col {
-      min-height: calc(100vh - 56px - 64px);
+    grid-template-columns: 1fr 1fr;
   }
 }
