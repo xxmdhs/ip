@@ -39,7 +39,7 @@
             let s = bil2dp(text);
             let f = document.getElementById("text");
             if (typeof (s.err) != "undefined") {
-                document.querySelector("#confirmationText").value = l.err;
+                document.querySelector("#confirmationText").value = s.err;
                 return
             }
             document.querySelector("#confirmationText").value = s;

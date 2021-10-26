@@ -11,6 +11,9 @@ func main() {
 	js.Global().Set("reg", js.FuncOf(reg))
 	js.Global().Set("conver", js.FuncOf(con))
 	js.Global().Set("bil2dp", js.FuncOf(bil2dpw))
+	js.Global().Set("sign", js.FuncOf(sign))
+	js.Global().Set("verify", js.FuncOf(verify))
+	js.Global().Set("genkey", js.FuncOf(genKeyJs))
 	select {}
 }
 

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>ed25519</title>
+    <script src="./wasm_exec.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/xmdhs/searchqanda/style.css">
+    <script>
+        if (window.fetch == null || window.WebAssembly == null) {
+            window.onload = function () {
+                document.getElementById("ipInfo").innerHTML = "请更新浏览器，<a href=\"https://www.google.cn/intl/zh-CN/chrome/\">https://www.google.cn/intl/zh-CN/chrome/</a>";
+            }
+        }
+    </script>
+    <script>
+        let go;
+        try {
+            go = new Go();
+        } catch (error) {
+            window.onload = function () {
+                document.getElementById("ipInfo").innerHTML = "请更新浏览器，<a href=\"https://www.google.cn/intl/zh-CN/chrome/\">https://www.google.cn/intl/zh-CN/chrome/</a>";
+            }
+        }
+        async function fetchAndInstantiate() {
+            const response = await fetch("./ip.wasm");
+            const buffer = await response.arrayBuffer();
+            const obj = await WebAssembly.instantiate(buffer, go.importObject)
+            go.run(obj.instance);
+        }
+        fetchAndInstantiate();
+        function togenkey() {
+            let l = genkey()
+            document.getElementById("pub").value = l[0]
+            document.getElementById("pr").value = l[1]
+        }
+        function tosign() {
+            let pr = document.getElementById("pr").value
+            if (pr == "") {
+                alert("请输入私钥")
+                return
+            }
+            let msg = document.getElementById("confirmationText").value
+            if (msg == "") {
+                alert("请输入文本")
+                return
+            }
+            let v = sign(pr, msg)
+            if (typeof (v.err) != "undefined") {
+                alert(v.err)
+                return
+            }
+            document.getElementById("signs").value = v
+        }
+        function ver() {
+            let pub = document.getElementById("pub").value
+            let msg = document.getElementById("confirmationText").value
+            if (pub == "") {
+                alert("请输入公钥")
+                return
+            }
+            if (msg == "") {
+                alert("请输入文本")
+                return
+            }
+            let sign = document.getElementById("signs").value
+            if (sign == "") {
+                alert("请输入签名")
+                return
+            }
+            let r = verify(pub, msg, sign)
+            if (typeof (r.err) != "undefined") {
+                alert(r.err)
+                return
+            }
+            if (r) {
+                alert("验证成功")
+            } else {
+                alert("验证失败")
+            }
+        }
+    </script>
+    <style>
+        .container-lg {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-column-gap: 10px;
+            grid-row-gap: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-lg px-3 my-5 markdown-body">
+        <textarea class="text" id="pub" placeholder="公钥"
+            style="width: 100%;overflow: auto;word-break: break-all; resize:none; height: 4em;transition: display 2s; grid-row: 1"></textarea>
+        <textarea class="text" id="pr" placeholder="私钥"
+            style="width: 100%;overflow: auto;word-break: break-all; resize:none; height: 4em;transition: display 2s; grid-row: 1"></textarea>
+        <button style="justify-self:start;align-self: start; grid-row: 2;grid-column: 1;"
+            onclick="togenkey()">生成公/私钥</button>
+        <div id="info"
+            style="grid-row: 3; grid-column: 1/3; display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 10px;grid-row-gap: 10px;">
+            <textarea id="confirmationText" autocomplete=on class="text" name="confirmationText"
+                style="width: 100%;height: 30em; overflow: auto;white-space:nowrap; grid-row: 1; grid-column: 1/3; resize:none"></textarea>
+            <div>
+                <button onclick="tosign()">签名</button>
+                <button onclick="ver()">验证</button>
+            </div>
+            <input type="text" id="signs" placeholder="签名" style="width: 100%; justify-self: start;"></input>
+        </div>
+    </div>
+</body>
+
+</html>
