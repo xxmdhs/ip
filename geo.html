@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>geoip 库 ip 地址查询</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/xmdhs/searchqanda/style.css">
+    <script>
+        window.addEventListener('load', function () {
+            class card extends HTMLElement {
+                constructor() {
+                    super();
+                    let shadow = this.attachShadow({ mode: 'closed' });
+                    this.s = shadow
+                    let content = document.getElementById('card').content.cloneNode(true)
+                    shadow.appendChild(content);
+                }
+
+                up() {
+                    this.s.querySelector('.card-title').innerText = this.getAttribute('ip')
+                    this.s.querySelector('#country').innerText = this.getAttribute('country')
+                    this.s.querySelector('#region').innerText = this.getAttribute('region')
+                    this.s.querySelector('#city').innerText = this.getAttribute('city')
+                    this.s.querySelector('#isp').innerText = this.getAttribute('isp')
+                }
+
+                connectedCallback() {
+                    this.up()
+                }
+
+                attributeChangedCallback(name, oldValue, newValue) {
+                    this.up()
+                }
+            }
+            customElements.define('card-ip', card);
+
+
+            let f = document.getElementById("getip");
+            f.addEventListener("submit", function (event) {
+                event.preventDefault();
+                Form();
+            });
+        })
+
+
+        async function Form() {
+            let ip = document.querySelector("#ip").value.toString();
+            if (ip == "") {
+                return;
+            }
+            let r
+            let card = document.createElement('card-ip');
+            try {
+                r = await fetch("https://auto.xmdhs.top:37981/ip/" + ip)
+            } catch (e) {
+                card.setAttribute('country', e);
+                card.setAttribute('ip', "Error");
+                let rdom = document.getElementById('result')
+                rdom.insertBefore(card, rdom.firstChild)
+                return false;
+            }
+            let data = await r.json();
+            card.setAttribute('ip', ip);
+            card.setAttribute('country', data.country);
+            card.setAttribute('region', data.region);
+            card.setAttribute('city', data.city);
+            card.setAttribute('isp', data.isp);
+            let rdom = document.getElementById('result')
+            rdom.insertBefore(card, rdom.firstChild)
+            return false;
+        }
+
+    </script>
+
+    <style>
+        #result {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
+            grid-gap: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-lg px-3 my-5 markdown-body">
+        <h1>ip 地址查询</h1>
+        <form id="getip">
+            <input type="search" id="ip" placeholder="1.1.1.1" name="ip">
+            <input type="submit" value="查询">
+        </form>
+        <hr>
+        <div id="result"></div>
+    </div>
+</body>
+
+<template id="card">
+    <div class="card">
+        <div class="card-body">
+            <span class="card-title">{{ip}}</span>
+            <span class="card-text" id="country">{{country}}</span>
+            <span class="card-text" id="region">{{region}}</span>
+            <span class="card-text" id="city">{{city}}</span>
+            <span class="card-text" id="isp">{{isp}}</span>
+        </div>
+    </div>
+    <style>
+        .card {
+            box-shadow: 0 3px 1px -2px rgb(0 0 0 / 20%), 0 2px 2px 0 rgb(0 0 0 / 14%), 0 1px 5px 0 rgb(0 0 0 / 12%);
+            border-radius: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            font-size: 16px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .card-body {
+            display: flex;
+            flex-wrap: wrap;
+            column-gap: 5px;
+            word-wrap: break-word;
+        }
+
+        .card-title {
+            font-size: 24px;
+            font-weight: bold;
+            flex: 1 0 100%;
+        }
+    </style>
+</template>
+
+</html>
