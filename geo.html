@@ -13,17 +13,17 @@
                 constructor() {
                     super();
                     let shadow = this.attachShadow({ mode: 'closed' });
-                    this.s = shadow
+                    this.#s = shadow
                     let content = document.getElementById('card').content.cloneNode(true)
                     shadow.appendChild(content);
                 }
 
                 up() {
-                    this.s.querySelector('.card-title').innerText = this.getAttribute('ip')
-                    this.s.querySelector('#country').innerText = this.getAttribute('country')
-                    this.s.querySelector('#region').innerText = this.getAttribute('region')
-                    this.s.querySelector('#city').innerText = this.getAttribute('city')
-                    this.s.querySelector('#isp').innerText = this.getAttribute('isp')
+                    this.#s.querySelector('.card-title').innerText = this.getAttribute('ip')
+                    this.#s.querySelector('#country').innerText = this.getAttribute('country')
+                    this.#s.querySelector('#region').innerText = this.getAttribute('region')
+                    this.#s.querySelector('#city').innerText = this.getAttribute('city')
+                    this.#s.querySelector('#isp').innerText = this.getAttribute('isp')
                 }
 
                 connectedCallback() {
