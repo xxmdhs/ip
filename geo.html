@@ -12,10 +12,9 @@
             class card extends HTMLElement {
                 constructor() {
                     super();
-                    let shadow = this.attachShadow({ mode: 'closed' });
-                    this.#s = shadow
+                    this.#s = this.attachShadow({ mode: 'closed' });
                     let content = document.getElementById('card').content.cloneNode(true)
-                    shadow.appendChild(content);
+                    this.#s.appendChild(content);
                 }
 
                 #s
@@ -34,6 +33,10 @@
 
                 attributeChangedCallback(name, oldValue, newValue) {
                     this.up()
+                }
+
+                static get observedAttributes() {
+                    return ['ip', 'country', 'region', 'city', 'isp']
                 }
             }
             customElements.define('card-ip', card);
@@ -137,7 +140,7 @@
             flex: 1 0 100%;
         }
 
-        #isp{
+        #isp {
             flex: 1 0 100%;
         }
     </style>
