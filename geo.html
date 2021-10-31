@@ -25,6 +25,7 @@
                     this.#s.querySelector('#region').innerText = this.getAttribute('region')
                     this.#s.querySelector('#city').innerText = this.getAttribute('city')
                     this.#s.querySelector('#isp').innerText = this.getAttribute('isp')
+                    this.#s.querySelector('#asn').innerText = this.getAttribute('asn')
                 }
 
                 connectedCallback() {
@@ -36,7 +37,7 @@
                 }
 
                 static get observedAttributes() {
-                    return ['ip', 'country', 'region', 'city', 'isp']
+                    return ['ip', 'country', 'region', 'city', 'isp', "asn"]
                 }
             }
             customElements.define('card-ip', card);
@@ -75,6 +76,7 @@
             card.setAttribute('region', data.region);
             card.setAttribute('city', data.city);
             card.setAttribute('isp', data.isp);
+            card.setAttribute('asn', "AS" + data.asn);
             let rdom = document.getElementById('result')
             rdom.insertBefore(card, rdom.firstChild)
             return false;
@@ -106,11 +108,12 @@
 <template id="card">
     <div class="card">
         <div class="card-body">
-            <span class="card-title">{{ip}}</span>
-            <span class="card-text" id="country">{{country}}</span>
-            <span class="card-text" id="region">{{region}}</span>
-            <span class="card-text" id="city">{{city}}</span>
-            <span class="card-text" id="isp">{{isp}}</span>
+            <span class="card-title"></span>
+            <span class="card-text" id="country"></span>
+            <span class="card-text" id="region"></span>
+            <span class="card-text" id="city"></span>
+            <span class="card-text" id="isp"></span>
+            <span class="card-text" id="asn"></span>
         </div>
     </div>
     <style>
