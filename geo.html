@@ -64,6 +64,10 @@
                 return false;
             }
             let data = await r.json();
+            if (r.status == 200) {
+                data.ip = "Error"
+                data.country = data.msg
+            }
             card.setAttribute('ip', ip);
             card.setAttribute('country', data.country);
             card.setAttribute('region', data.region);
@@ -131,6 +135,10 @@
         .card-title {
             font-size: 24px;
             font-weight: bold;
+            flex: 1 0 100%;
+        }
+
+        #isp{
             flex: 1 0 100%;
         }
     </style>
