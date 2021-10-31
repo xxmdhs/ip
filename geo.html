@@ -64,8 +64,7 @@
                 return false;
             }
             let data = await r.json();
-            if (r.status == 200) {
-                data.ip = "Error"
+            if (r.status != 200) {
                 data.country = data.msg
             }
             card.setAttribute('ip', ip);
