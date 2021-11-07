@@ -27,7 +27,7 @@
                         <span class="card-text" id="region">{{ result.region || ""}}</span>
                         <span class="card-text" id="city">{{ result.city || ""}}</span>
                         <span class="card-text" id="isp">{{ result.isp || ""}}</span>
-                        <span class="card-text" id="asn">{{ "AS" + result.ASN || "" }}</span>
+                        <span class="card-text" id="asn">{{ result.ASN ? "AS" + result.ASN : "" }}</span>
                     </div>
                 </div>
             </transition-group>
@@ -49,21 +49,21 @@
                 try {
                     r = await fetch("https://auto.xmdhs.top:37981/ip/" + this.ip)
                 } catch (e) {
-                    this.resultList.push({
+                    this.resultList.unshift({
                         ip: this.ip,
-                        result: e.message
-                    })
-                    return
-                }
-                if (r.status != 200) {
-                    this.resultList.push({
-                        ip: this.ip,
-                        result: r.statusText
+                        result: {isp: e}
                     })
                     return
                 }
                 let result = await r.json()
-                this.resultList.push({
+                if (r.status != 200) {
+                    this.resultList.unshift({
+                        ip: this.ip,
+                        result: {isp: result.msg}
+                    })
+                    return
+                }
+                this.resultList.unshift({
                     ip: this.ip,
                     result: result
                 })
@@ -111,13 +111,17 @@
 
     .list-enter-active,
     .list-leave-active {
-        transition: all 1s ease;
+        transition: all 1s;
     }
 
     .list-enter-from,
     .list-leave-to {
         opacity: 0;
         transform: translateY(30px);
+    }
+
+    .list-move {
+        transition: transform 0.8s;
     }
 </style>
 
