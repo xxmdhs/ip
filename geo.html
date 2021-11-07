@@ -20,7 +20,7 @@
             </form>
             <hr>
             <transition-group id="result" tag="div" name="list">
-                <div class="card" v-for="{ip, result} in resultList" :key="ip">
+                <div class="card" v-for="{ip, result, id} in resultList" :key="id">
                     <div class="card-body">
                         <span class="card-title">{{ ip }}</span>
                         <span class="card-text" id="country">{{ result.country || ""}}</span>
@@ -43,15 +43,20 @@
                 resultList: []
             }
         },
+        mounted() {
+          this.id = 0  
+        },
         methods: {
             async submit() {
+                this.id = this.id + 1
                 let r;
                 try {
                     r = await fetch("https://auto.xmdhs.top:37981/ip/" + this.ip)
                 } catch (e) {
                     this.resultList.unshift({
                         ip: this.ip,
-                        result: {isp: e}
+                        result: {isp: e},
+                        id: this.id
                     })
                     return
                 }
@@ -59,13 +64,15 @@
                 if (r.status != 200) {
                     this.resultList.unshift({
                         ip: this.ip,
-                        result: {isp: result.msg}
+                        result: {isp: result.msg},
+                        id: this.id
                     })
                     return
                 }
                 this.resultList.unshift({
                     ip: this.ip,
-                    result: result
+                    result: result,
+                    id: this.id
                 })
             }
         }
