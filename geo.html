@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>geoip 库 ip 地址查询</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/xmdhs/searchqanda/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.21/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.21/dist/vue.global.js"></script>
 </head>
 
 <body>
@@ -19,8 +19,8 @@
                 <input type="submit" value="查询">
             </form>
             <hr>
-            <div id="result">
-                <div class="card" v-for="{ip, result} in resultList">
+            <transition-group id="result" tag="div" name="list">
+                <div class="card" v-for="{ip, result} in resultList" :key="ip">
                     <div class="card-body">
                         <span class="card-title">{{ ip }}</span>
                         <span class="card-text" id="country">{{ result.country || ""}}</span>
@@ -30,7 +30,7 @@
                         <span class="card-text" id="asn">{{ "AS" + result.ASN || "" }}</span>
                     </div>
                 </div>
-            </div>
+            </transition-group>
         </div>
     </div>
 </body>
@@ -107,6 +107,17 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
         grid-gap: 10px;
+    }
+
+    .list-enter-active,
+    .list-leave-active {
+        transition: all 1s ease;
+    }
+
+    .list-enter-from,
+    .list-leave-to {
+        opacity: 0;
+        transform: translateY(30px);
     }
 </style>
 
