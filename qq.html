@@ -6,7 +6,6 @@
     <title>QQ 查询</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@latest/css/pico.min.css">
     <script src="https://cdn.jsdelivr.net/npm/vue@3.2.29/dist/vue.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/cnwhy/GBK.js@master/dist/gbk.min.js"></script>
     <style type="text/css">
         header {
             border-bottom: 1px solid #e5e5e5;
@@ -85,18 +84,18 @@
                         loading.value = true;
                         let f = await fetch(cors + `https://r.qzone.qq.com/fcg-bin/cgi_get_portrait.fcg?uins=${qqnum.value}`)
                         let data = await f.arrayBuffer()
-                        let gbk = GBK.decode(new Uint8Array(data))
+                        let gbk = new TextDecoder("gbk").decode(data)
                         let r = reg.exec(gbk)
                         if (r == null || r.length != 2) {
                             loading.value = false;
-                            errmsg.value = "错误，无法获取\n\n" + gbk;
+                            errmsg.value = "错误，无法获取\n\n" + new TextDecoder().decode(data);
                             console.warn(gbk)
                             return
                         }
                         let json = JSON.parse(r[1])
                         if (json[qqnum.value] == null || json[qqnum.value].length == 0) {
                             loading.value = false;
-                            errmsg.value = "错误，无法获取\n\n" + gbk;
+                            errmsg.value = "错误，无法获取\n\n" + new TextDecoder().decode(data);
                             console.warn(gbk)
                             return
                         }
