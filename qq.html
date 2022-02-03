@@ -79,9 +79,9 @@
                 if (qqnumF) {
                     clearTimeout(qqnumF);
                 }
+                loading.value = true;
                 qqnumF = setTimeout(async () => {
                     try {
-                        loading.value = true;
                         let f = await fetch(cors + `https://r.qzone.qq.com/fcg-bin/cgi_get_portrait.fcg?uins=${qqnum.value}`)
                         let data = await f.arrayBuffer()
                         let gbk = new TextDecoder("gbk").decode(data)
