@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QQ 查询</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@latest/css/pico.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.29/dist/vue.global.js"></script>
+    <style type="text/css">
+        header {
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+
+        .between {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .column {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-direction: column;
+        }
+    </style>
+</head>
+
+
+
+<body>
+    <div id="app">
+        <header>
+            <nav class="container-fluid">
+                <ul>
+                    <li><strong>QQ 查询</strong></li>
+                </ul>
+                <ul>
+                </ul>
+            </nav>
+        </header>
+        <main class="container">
+            <input type="text" placeholder="qq num" v-model="qqnum">
+            <article v-if="qqnum" :aria-busy="loading">
+                <div v-if="!loading && !errmsg" class="between">
+                    <div class="column">
+                        <span>QQ：{{ qqnum }}</span>
+                        <span>昵称：{{ name }}</span>
+                        <span v-if="!result">错误，无法获取</span>
+                        <span v-if="result">实名：{{is_realname ? "✓" : "✗" }}</span>
+                        <span v-if="result">成年：{{is_adult ? "✓" : "✗" }}</span>
+                    </div>
+                    <img :src="qqimg" width="100" height="100"></img>
+                </div>
+                <span v-if="errmsg" style="white-space:pre-wrap;overflow: auto;">{{ errmsg }}</span>
+            </article>
+        </main>
+    </div>
+</body>
+
+<script type="text/javascript">
+    Vue.createApp({
+        setup(props, context) {
+            const qqnum = Vue.ref('');
+            const qqimg = Vue.ref('');
+            const name = Vue.ref('');
+            const is_adult = Vue.ref(false);
+            const is_realname = Vue.ref(false);
+            const result = Vue.ref(true);
+            const loading = Vue.ref(true);
+            const errmsg = Vue.ref('');
+
+            const cors = `https://quiet-disk-7a77.xmdhs.workers.dev/`
+
+            const reg = /portraitCallBack\((.*)\)/
+            let qqnumF = null;
+            Vue.watch(qqnum, () => {
+                if (qqnumF) {
+                    clearTimeout(qqnumF);
+                }
+                loading.value = true;
+                qqnumF = setTimeout(async () => {
+                    try {
+                        let f = await fetch(cors + `https://r.qzone.qq.com/fcg-bin/cgi_get_portrait.fcg?uins=${qqnum.value}`)
+                        let data = await f.arrayBuffer()
+                        let gbk = new TextDecoder("gbk").decode(data)
+                        let r = reg.exec(gbk)
+                        if (r == null || r.length != 2) {
+                            loading.value = false;
+                            errmsg.value = "错误，无法获取\n\n" + new TextDecoder().decode(data);
+                            console.warn(gbk)
+                            return
+                        }
+                        let json = JSON.parse(r[1])
+                        if (json[qqnum.value] == null || json[qqnum.value].length == 0) {
+                            loading.value = false;
+                            errmsg.value = "错误，无法获取\n\n" + new TextDecoder().decode(data);
+                            console.warn(gbk)
+                            return
+                        }
+                        let u = new URL(json[qqnum.value][0])
+                        u.protocol = 'https:'
+                        qqimg.value = cors + u.toString()
+                        name.value = json[qqnum.value][6]
+
+                        let bodyContent = JSON.stringify({
+                            "qq_login_key": {
+                                "qq_key_type": 3,
+                                "uint64_uin": qqnum.value
+                            },
+                            "acc_type": 1,
+                            "uint64_uin": qqnum.value
+                        });
+
+                        let ff = await fetch(cors + `https://www.wegame.com.cn/api/middle/lua/realname/check_user_real_name`, {
+                            method: "POST",
+                            body: bodyContent,
+                            headers: {
+                                "Content-Type": "application/json"
+                            }
+                        })
+                        let s = await ff.text()
+                        let d = JSON.parse(s)
+                        is_adult.value = d.is_adult === 1
+                        is_realname.value = d.is_realname === 1
+                        result.value = d.result == 0
+                        loading.value = false
+                        errmsg.value = ''
+                    } catch (e) {
+                        errmsg.value = "错误，无法获取";
+                        console.warn(e)
+                    } finally {
+                        loading.value = false
+                    }
+                }, 500)
+            })
+
+
+            return {
+                qqnum,
+                qqimg,
+                name,
+                is_adult,
+                is_realname,
+                result,
+                loading,
+                errmsg
+            }
+        },
+    }).mount('#app')
+
+
+</script>
+
+</html>

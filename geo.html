@@ -7,146 +7,129 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>geoip 库 ip 地址查询</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/xmdhs/searchqanda/style.css">
-    <script>
-        window.addEventListener('load', function () {
-            class card extends HTMLElement {
-                constructor() {
-                    super();
-                    this.#s = this.attachShadow({ mode: 'closed' });
-                    let content = document.getElementById('card').content.cloneNode(true)
-                    this.#s.appendChild(content);
-                }
-
-                #s
-
-                up() {
-                    this.#s.querySelector('.card-title').innerText = this.getAttribute('ip')
-                    this.#s.querySelector('#country').innerText = this.getAttribute('country')
-                    this.#s.querySelector('#region').innerText = this.getAttribute('region')
-                    this.#s.querySelector('#city').innerText = this.getAttribute('city')
-                    this.#s.querySelector('#isp').innerText = this.getAttribute('isp')
-                    this.#s.querySelector('#asn').innerText = this.getAttribute('asn')
-                }
-
-                connectedCallback() {
-                    this.up()
-                }
-
-                attributeChangedCallback(name, oldValue, newValue) {
-                    this.up()
-                }
-
-                static get observedAttributes() {
-                    return ['ip', 'country', 'region', 'city', 'isp', "asn"]
-                }
-            }
-            customElements.define('card-ip', card);
-
-
-            let f = document.getElementById("getip");
-            f.addEventListener("submit", function (event) {
-                event.preventDefault();
-                Form();
-            });
-        })
-
-
-        async function Form() {
-            let ip = document.querySelector("#ip").value.toString();
-            if (ip == "") {
-                return;
-            }
-            let r
-            let card = document.createElement('card-ip');
-            try {
-                r = await fetch("https://auto.xmdhs.top:37981/ip/" + ip)
-            } catch (e) {
-                card.setAttribute('country', e);
-                card.setAttribute('ip', "Error");
-                let rdom = document.getElementById('result')
-                rdom.insertBefore(card, rdom.firstChild)
-                return false;
-            }
-            let data = await r.json();
-            if (r.status != 200) {
-                data.country = data.msg
-            }
-            card.setAttribute('ip', ip);
-            card.setAttribute('country', data.country);
-            card.setAttribute('region', data.region);
-            card.setAttribute('city', data.city);
-            card.setAttribute('isp', data.isp);
-            card.setAttribute('asn', "AS" + data.ASN);
-            let rdom = document.getElementById('result')
-            rdom.insertBefore(card, rdom.firstChild)
-            return false;
-        }
-
-    </script>
-
-    <style>
-        #result {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
-            grid-gap: 10px;
-        }
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.21/dist/vue.global.js"></script>
 </head>
 
 <body>
-    <div class="container-lg px-3 my-5 markdown-body">
-        <h1>ip 地址查询</h1>
-        <form id="getip">
-            <input type="search" id="ip" placeholder="1.1.1.1" name="ip">
-            <input type="submit" value="查询">
-        </form>
-        <hr>
-        <div id="result"></div>
+    <div id="app">
+        <div class="container-lg px-3 my-5 markdown-body">
+            <h1>ip 地址查询</h1>
+            <form id="getip" @submit.prevent="submit">
+                <input type="search" id="ip" placeholder="1.1.1.1" name="ip" v-model="ip">
+                <input type="submit" value="查询">
+            </form>
+            <hr>
+            <transition-group id="result" tag="div" name="list">
+                <div class="card" v-for="{ip, result, id} in resultList" :key="id">
+                    <div class="card-body">
+                        <span class="card-title">{{ ip }}</span>
+                        <span class="card-text" id="country">{{ result.country || ""}}</span>
+                        <span class="card-text" id="region">{{ result.region || ""}}</span>
+                        <span class="card-text" id="city">{{ result.city || ""}}</span>
+                        <span class="card-text" id="isp">{{ result.isp || ""}}</span>
+                        <span class="card-text" id="asn">{{ result.ASN ? "AS" + result.ASN : "" }}</span>
+                    </div>
+                </div>
+            </transition-group>
+        </div>
     </div>
 </body>
 
-<template id="card">
-    <div class="card">
-        <div class="card-body">
-            <span class="card-title"></span>
-            <span class="card-text" id="country"></span>
-            <span class="card-text" id="region"></span>
-            <span class="card-text" id="city"></span>
-            <span class="card-text" id="isp"></span>
-            <span class="card-text" id="asn"></span>
-        </div>
-    </div>
-    <style>
-        .card {
-            box-shadow: 0 3px 1px -2px rgb(0 0 0 / 20%), 0 2px 2px 0 rgb(0 0 0 / 14%), 0 1px 5px 0 rgb(0 0 0 / 12%);
-            border-radius: 10px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-            font-size: 16px;
-            line-height: 1.5;
-            word-wrap: break-word;
-            width: 100%;
-            height: 100%;
-            padding: 10px;
-            box-sizing: border-box;
+<script>
+    Vue.createApp({
+        data() {
+            return {
+                ip: '',
+                resultList: []
+            }
+        },
+        mounted() {
+          this.id = 0  
+        },
+        methods: {
+            async submit() {
+                this.id = this.id + 1
+                let r;
+                try {
+                    r = await fetch("https://auto.xmdhs.top:37981/ip/" + this.ip)
+                } catch (e) {
+                    this.resultList.unshift({
+                        ip: this.ip,
+                        result: {isp: e},
+                        id: this.id
+                    })
+                    return
+                }
+                let result = await r.json()
+                if (r.status != 200) {
+                    this.resultList.unshift({
+                        ip: this.ip,
+                        result: {isp: result.msg},
+                        id: this.id
+                    })
+                    return
+                }
+                this.resultList.unshift({
+                    ip: this.ip,
+                    result: result,
+                    id: this.id
+                })
+            }
         }
+    }).mount('#app')
+</script>
 
-        .card-body {
-            display: flex;
-            flex-wrap: wrap;
-            column-gap: 5px;
-            word-wrap: break-word;
-        }
+<style>
+    .card {
+        box-shadow: 0 3px 1px -2px rgb(0 0 0 / 20%), 0 2px 2px 0 rgb(0 0 0 / 14%), 0 1px 5px 0 rgb(0 0 0 / 12%);
+        border-radius: 10px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        font-size: 16px;
+        line-height: 1.5;
+        word-wrap: break-word;
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+    }
 
-        .card-title {
-            font-size: 24px;
-            font-weight: bold;
-            flex: 1 0 100%;
-        }
+    .card-body {
+        display: flex;
+        flex-wrap: wrap;
+        column-gap: 5px;
+        word-wrap: break-word;
+    }
 
-        #isp {
-            flex: 1 0 100%;
-        }
-    </style>
-</template>
+    .card-title {
+        font-size: 24px;
+        font-weight: bold;
+        flex: 1 0 100%;
+    }
+
+    #isp {
+        flex: 1 0 100%;
+    }
+
+    #result {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
+        grid-gap: 10px;
+    }
+
+    .list-enter-active,
+    .list-leave-active {
+        transition: all 1s;
+    }
+
+    .list-enter-from,
+    .list-leave-to {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    .list-move {
+        transition: transform 0.8s;
+    }
+</style>
 
 </html>
