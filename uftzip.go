@@ -46,7 +46,8 @@ func gbk2UtfZip(b []byte) ([]byte, error) {
 		}
 		f.Name = string(s)
 		f.NonUTF8 = false
-		f.Flags = 1 << 11
+		f.Flags = f.Flags | 2048
+		fmt.Println(f.Flags)
 		zipWriter.Copy(f)
 	}
 	zipWriter.Close()
