@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gbk 文件名 zip 转 utf</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@latest/css/pico.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.29/dist/vue.global.js"></script>
+    <script src="./wasm_exec.js"></script>
+    <style type="text/css">
+        header {
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+    </style>
+    <script>
+        if (window.fetch == null || window.WebAssembly == null) {
+            alert("请使用最新版本的 chrome 浏览器");
+        }
+    </script>
+</head>
+
+
+
+<body>
+    <div id="app">
+        <header>
+            <nav class="container-fluid">
+                <ul>
+                    <li><strong>gbk 文件名 zip 转 utf</strong></li>
+                </ul>
+                <ul>
+                </ul>
+            </nav>
+        </header>
+        <main class="container">
+            <input type="file" ref="file" accept=".zip" @change="fileupload" v-if="!load">
+            <p v-if="load">{{ load }}</p>
+        </main>
+    </div>
+</body>
+
+<script type="text/javascript">
+    Vue.createApp({
+        setup(props, context) {
+            let go;
+            try {
+                go = new Go();
+            } catch (error) {
+                alert("请使用最新版本的 chrome 浏览器");
+            }
+            async function fetchAndInstantiate() {
+                const response = await fetch("./ip.wasm");
+                const buffer = await response.arrayBuffer();
+                const obj = await WebAssembly.instantiate(buffer, go.importObject)
+                go.run(obj.instance);
+            }
+            const file = Vue.ref(null);
+            const load = Vue.ref("加载 wasm 中");
+
+            (async () => {
+                await fetchAndInstantiate();
+                load.value = "";
+            })()
+
+
+            function fileupload() {
+                load.value = "转换中";
+                let files = file.value;
+                let reader = new FileReader();
+                reader.readAsArrayBuffer(files.files[0]);
+                reader.onload = function (e) {
+                    let a = e.target.result
+                    let b = new Uint8Array(a)
+                    let r = guzip(b)
+                    let blob = new Blob([r], {
+                        type: "application/zip"
+                    })
+                    let url = URL.createObjectURL(blob)
+                    let adom = document.createElement("a")
+                    adom.href = url
+                    let name = files.files[0].name.replace(/\.zip$/, "")
+                    adom.download = name + ".utf-8.zip"
+                    document.body.appendChild(adom)
+                    adom.click()
+                    document.body.removeChild(adom)
+                    URL.revokeObjectURL(url)
+                    load.value = "";
+                }
+            }
+
+            return {
+                file,
+                fileupload,
+                load
+            }
+        },
+    }).mount('#app')
+
+
+</script>
+
+</html>

@@ -14,6 +14,7 @@ func main() {
 	js.Global().Set("sign", js.FuncOf(sign))
 	js.Global().Set("verify", js.FuncOf(verify))
 	js.Global().Set("genkey", js.FuncOf(genKeyJs))
+	js.Global().Set("guzip", js.FuncOf(gbk2UtfZipJs))
 	select {}
 }
 

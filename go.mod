@@ -7,4 +7,5 @@ require (
 	github.com/frustra/bbcode v0.0.0-20201127003707-6ef347fbe1c8
 	github.com/go-openapi/swag v0.19.15
 	github.com/hexops/vecty v0.6.0
+	golang.org/x/text v0.3.7
 )
