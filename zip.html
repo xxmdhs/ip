@@ -37,6 +37,7 @@
         <main class="container">
             <input type="file" ref="file" accept=".zip" @change="fileupload" v-if="!load">
             <p v-if="load">{{ load }}</p>
+            <p v-if="errmsg" style="color: red;">{{ errmsg }}</p>
         </main>
     </div>
 </body>
@@ -58,6 +59,7 @@
             }
             const file = Vue.ref(null);
             const load = Vue.ref("加载 wasm 中");
+            const errmsg = Vue.ref("");
 
             (async () => {
                 await fetchAndInstantiate();
@@ -74,6 +76,10 @@
                     let a = e.target.result
                     let b = new Uint8Array(a)
                     let r = guzip(b)
+                    if (typeof (l.err) != "undefined") {
+                        errmsg.value = l.err;
+                        return
+                    }
                     let blob = new Blob([r], {
                         type: "application/zip"
                     })
@@ -93,7 +99,8 @@
             return {
                 file,
                 fileupload,
-                load
+                load,
+                errmsg
             }
         },
     }).mount('#app')
