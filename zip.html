@@ -67,35 +67,30 @@
             })()
 
 
-            function fileupload() {
+            async function fileupload() {
+                let f = file.value;
                 errmsg.value = "";
                 load.value = "转换中";
-                let files = file.value;
-                let reader = new FileReader();
-                reader.readAsArrayBuffer(files.files[0]);
-                reader.onload = function (e) {
-                    let a = e.target.result
-                    let b = new Uint8Array(a)
-                    let r = guzip(b)
-                    if (typeof (r.err) != "undefined") {
-                        load.value = "";
-                        errmsg.value = r.err;
-                        return
-                    }
-                    let blob = new Blob([r], {
-                        type: "application/zip"
-                    })
-                    let url = URL.createObjectURL(blob)
-                    let adom = document.createElement("a")
-                    adom.href = url
-                    let name = files.files[0].name.replace(/\.zip$/, "")
-                    adom.download = name + ".utf-8.zip"
-                    document.body.appendChild(adom)
-                    adom.click()
-                    document.body.removeChild(adom)
-                    URL.revokeObjectURL(url)
+                let b = new Uint8Array(await f.files[0].arrayBuffer())
+                let r = guzip(b)
+                if (typeof (r.err) != "undefined") {
                     load.value = "";
+                    errmsg.value = r.err;
+                    return
                 }
+                let blob = new Blob([r], {
+                    type: "application/zip"
+                })
+                let url = URL.createObjectURL(blob)
+                let adom = document.createElement("a")
+                adom.href = url
+                let name = f.files[0].name.replace(/\.zip$/, "")
+                adom.download = name + ".utf-8.zip"
+                document.body.appendChild(adom)
+                adom.click()
+                document.body.removeChild(adom)
+                URL.revokeObjectURL(url)
+                load.value = "";
             }
 
             return {
