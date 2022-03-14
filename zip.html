@@ -68,6 +68,7 @@
 
 
             function fileupload() {
+                errmsg.value = "";
                 load.value = "转换中";
                 let files = file.value;
                 let reader = new FileReader();
@@ -77,6 +78,7 @@
                     let b = new Uint8Array(a)
                     let r = guzip(b)
                     if (typeof (r.err) != "undefined") {
+                        load.value = "";
                         errmsg.value = r.err;
                         return
                     }
