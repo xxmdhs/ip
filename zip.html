@@ -76,8 +76,8 @@
                     let a = e.target.result
                     let b = new Uint8Array(a)
                     let r = guzip(b)
-                    if (typeof (l.err) != "undefined") {
-                        errmsg.value = l.err;
+                    if (typeof (r.err) != "undefined") {
+                        errmsg.value = r.err;
                         return
                     }
                     let blob = new Blob([r], {
