@@ -19,15 +19,16 @@
                 <input type="submit" value="查询">
             </form>
             <hr>
-            <transition-group id="result" tag="div" name="list">
-                <div class="card" v-for="{ip, result, id} in resultList" :key="id">
+            <transition-group class="result" tag="div" name="list">
+                <div class="card" v-for="{ip, result, id, spam} in resultList" :key="id">
                     <div class="card-body">
                         <span class="card-title">{{ ip }}</span>
-                        <span class="card-text" id="country">{{ result.country || ""}}</span>
-                        <span class="card-text" id="region">{{ result.region || ""}}</span>
-                        <span class="card-text" id="city">{{ result.city || ""}}</span>
-                        <span class="card-text" id="isp">{{ result.isp || ""}}</span>
-                        <span class="card-text" id="asn">{{ result.ASN ? "AS" + result.ASN : "" }}</span>
+                        <span class="card-text">{{ result.country || ""}}</span>
+                        <span class="card-text">{{ result.region || ""}}</span>
+                        <span class="card-text">{{ result.city || ""}}</span>
+                        <span class="card-text" class="isp">{{ result.isp || ""}}</span>
+                        <span class="card-text">{{ result.ASN ? "AS" + result.ASN : "" }}</span>
+                        <span class="card-text"><a href="https://www.spamhaus.org/" target="_blank">{{ spam || "" }}</a></span>
                     </div>
                 </div>
             </transition-group>
@@ -37,45 +38,88 @@
 
 <script>
     Vue.createApp({
-        data() {
-            return {
-                ip: '',
-                resultList: []
+        setup() {
+            const resultList = Vue.ref([]);
+            const ip = Vue.ref("");
+            const id = Vue.ref(0);
+
+            /*
+            127.0.0.2	SBL	Spamhaus SBL Data
+            127.0.0.3	SBL	Spamhaus SBL CSS Data
+            127.0.0.4	XBL	CBL Data
+            127.0.0.9	SBL	Spamhaus DROP/EDROP Data (in addition to 127.0.0.2, since 01-Jun-2016)
+            127.0.0.10	PBL	ISP Maintained
+            127.0.0.11	PBL	Spamhaus Maintained
+            */
+
+            const spamCode = {
+                "127.0.0.2": "SBL",
+                "127.0.0.3": "SBL",
+                "127.0.0.4": "XBL",
+                "127.0.0.9": "SBL",
+                "127.0.0.10": "PBL",
+                "127.0.0.11": "PBL",
+                "127.255.255.252": "Typing error in DNSBL name",
             }
-        },
-        mounted() {
-          this.id = 0  
-        },
-        methods: {
-            async submit() {
-                this.id = this.id + 1
-                let r;
+
+
+            async function submit() {
+                id.value = id.value + 1
                 try {
-                    r = await fetch("https://auto.xmdhs.top:37981/ip/" + this.ip)
+                    let r = await fetch("https://auto.xmdhs.top:37981/ip/" + ip.value)
+                    let result = await r.json()
+                    if (r.status != 200) {
+                        resultList.value.unshift({
+                            ip: ip.value,
+                            result: { isp: result.msg },
+                            id: id.value
+                        })
+                        return
+                    }
+
+                    let ipl = ip.value.split(".")
+                    let domain = ipl.reverse().join(".") + ".zen.spamhaus.org."
+                    let rr = await fetch(`https://dns.alidns.com/resolve?name=${domain}&type=1`)
+
+                    let rrj = await rr.json()
+                    if (rr.status != 200 || rrj.Status != 0) {
+                        resultList.value.unshift({
+                            ip: ip.value,
+                            result: { isp: "查询失败" },
+                            id: id.value
+                        })
+                        return
+                    }
+                    let spam = {}
+                    rrj.Answer.forEach(r => {
+                        if (r.type == 1 && r.name == domain) {
+                            spam[spamCode[r.data]] = true
+                        }
+                    })
+                    let spams = Object.keys(spam).join(" ")
+                    resultList.value.unshift({
+                        ip: ip.value,
+                        result: result,
+                        id: id.value,
+                        spam: spams
+                    })
                 } catch (e) {
-                    this.resultList.unshift({
-                        ip: this.ip,
-                        result: {isp: e},
-                        id: this.id
+                    resultList.value.unshift({
+                        ip: ip.value,
+                        result: { isp: e },
+                        id: id.value
                     })
                     return
                 }
-                let result = await r.json()
-                if (r.status != 200) {
-                    this.resultList.unshift({
-                        ip: this.ip,
-                        result: {isp: result.msg},
-                        id: this.id
-                    })
-                    return
-                }
-                this.resultList.unshift({
-                    ip: this.ip,
-                    result: result,
-                    id: this.id
-                })
             }
-        }
+
+            return {
+                ip: ip,
+                resultList: resultList,
+                id: id,
+                submit
+            }
+        },
     }).mount('#app')
 </script>
 
@@ -106,11 +150,11 @@
         flex: 1 0 100%;
     }
 
-    #isp {
+    .isp {
         flex: 1 0 100%;
     }
 
-    #result {
+    .result {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
         grid-gap: 10px;
