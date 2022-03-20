@@ -82,7 +82,7 @@
                     let rr = await fetch(`https://dns.alidns.com/resolve?name=${domain}&type=1`)
 
                     let rrj = await rr.json()
-                    if (rr.status != 200 || rrj.Status != 0) {
+                    if (rr.status != 200) {
                         resultList.value.unshift({
                             ip: ip.value,
                             result: { isp: "查询失败" },
