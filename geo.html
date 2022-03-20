@@ -26,7 +26,7 @@
                         <span class="card-text">{{ result.country || ""}}</span>
                         <span class="card-text">{{ result.region || ""}}</span>
                         <span class="card-text">{{ result.city || ""}}</span>
-                        <span class="card-text" class="isp">{{ result.isp || ""}}</span>
+                        <span class="card-text isp">{{ result.isp || ""}}</span>
                         <span class="card-text">{{ result.ASN ? "AS" + result.ASN : "" }}</span>
                         <span class="card-text"><a href="https://www.spamhaus.org/" target="_blank">{{ spam || "" }}</a></span>
                     </div>
@@ -91,7 +91,7 @@
                         return
                     }
                     let spam = {}
-                    rrj.Answer.forEach(r => {
+                    rrj.Answer?.forEach(r => {
                         if (r.type == 1 && r.name == domain) {
                             spam[spamCode[r.data]] = true
                         }
