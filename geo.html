@@ -28,7 +28,8 @@
                         <span class="card-text">{{ result.city || ""}}</span>
                         <span class="card-text isp">{{ result.isp || ""}}</span>
                         <span class="card-text">{{ result.ASN ? "AS" + result.ASN : "" }}</span>
-                        <span class="card-text"><a href="https://www.spamhaus.org/" target="_blank">{{ spam || "" }}</a></span>
+                        <span class="card-text"><a href="https://www.spamhaus.org/" target="_blank">{{ spam || ""
+                                }}</a></span>
                     </div>
                 </div>
             </transition-group>
@@ -52,7 +53,7 @@
             127.0.0.11	PBL	Spamhaus Maintained
             */
 
-            const spamCode = {
+            const _spamCode = {
                 "127.0.0.2": "SBL",
                 "127.0.0.3": "SBL",
                 "127.0.0.4": "XBL",
@@ -60,6 +61,9 @@
                 "127.0.0.10": "PBL",
                 "127.0.0.11": "PBL",
                 "127.255.255.252": "Typing error in DNSBL name",
+            }
+            function spamCode(code) {
+                return _spamCode[code] || "Err code: " + code;
             }
 
 
@@ -93,7 +97,7 @@
                     let spam = {}
                     rrj.Answer?.forEach(r => {
                         if (r.type == 1 && r.name == domain) {
-                            spam[spamCode[r.data]] = true
+                            spam[spamCode(r.data)] = true
                         }
                     })
                     let spams = Object.keys(spam).join(" ")
