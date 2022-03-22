@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片格式转换</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@latest/css/pico.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.29/dist/vue.global.js"></script>
+    <style type="text/css">
+        header {
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+
+
+
+<body>
+    <div id="app">
+        <header>
+            <nav class="container-fluid">
+                <ul>
+                    <li><strong>图片格式转换</strong></li>
+                </ul>
+                <ul>
+                </ul>
+            </nav>
+        </header>
+        <main class="container">
+            <div style="display: grid;grid-template-columns: 15em 5em;column-gap: 10px;">
+                <input type="file" ref="file" accept="image/*" multiple>
+                <button @click="fileupload" style="width: 5em;">转换</button>
+            </div>
+            <select v-model="selected">
+                <option disabled value="">选择需要转换到的格式</option>
+                <option>png</option>
+                <option>jpeg</option>
+                <option>webp</option>
+            </select>
+            <label>
+                质量 0-1 当选择不为 png 时有效
+                <input type="number" v-model="quality">
+            </label>
+            <p v-if="errmsg" style="color: red;">{{ errmsg }}</p>
+            <div style="display: grid;grid-template-columns: 8em 5em;column-gap: 10px;">
+                <button v-if="imgs.length" @click="alldownload">全部下载</button>
+                <button v-if="imgs.length" @click="imgs = []">清空</button>
+            </div>
+
+            <div class="imgs" v-if="imgs.length"
+                style="display: grid;grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));gap: 15px;align-items:center;padding-bottom: 20px;">
+                <img v-for="(img, index) in imgs" :src="img" :key="index">
+            </div>
+        </main>
+    </div>
+</body>
+
+<script type="text/javascript">
+    Vue.createApp({
+        setup(props, context) {
+            const errmsg = Vue.ref('');
+            const file = Vue.ref(null);
+            const selected = Vue.ref('');
+            const quality = Vue.ref(0.92);
+            const imgs = Vue.ref([]);
+            let oldselected = ""
+
+            async function fileupload() {
+                const f = file.value;
+                errmsg.value = "";
+                oldselected = selected.value;
+
+                if (selected.value == "") {
+                    errmsg.value = "请选择转换格式";
+                    return;
+                }
+
+                for (const v of f.files) {
+                    if (v.type.indexOf('image') === -1) {
+                        errmsg.value = "请选择图片文件";
+                        return;
+                    }
+                    const u = URL.createObjectURL(v)
+                    const uu = await conver(oldselected, quality.value, u);
+                    imgs.value.push(uu);
+                }
+                f.files = []
+            }
+
+            function alldownload() {
+                let i = 0
+                for (const v of imgs.value) {
+                    i++;
+                    const a = document.createElement('a');
+                    a.href = v;
+                    let ext = oldselected
+                    if (ext == "jpeg") {
+                        ext = "jpg"
+                    }
+                    a.download = i + "." + ext;
+                    a.click();
+                }
+            }
+
+            async function conver(f, q, url) {
+                let canvas = document.createElement('canvas');
+                let ctx = canvas.getContext('2d');
+                let image = new Image();
+                image.src = url;
+
+                return new Promise((resolve, reject) => {
+                    image.onload = () => {
+                        canvas.width = image.width;
+                        canvas.height = image.height;
+                        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                        URL.revokeObjectURL(f);
+                        resolve(canvas.toDataURL(`image/${f}`, q))
+                    }
+                })
+            }
+
+            return {
+                errmsg,
+                file,
+                selected,
+                quality,
+                imgs,
+                fileupload,
+                alldownload
+            }
+        },
+    }).mount('#app')
+
+
+</script>
+
+</html>
