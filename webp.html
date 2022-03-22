@@ -51,7 +51,7 @@
 
             <div class="imgs" v-if="imgs.length"
                 style="display: grid;grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));gap: 15px;align-items:center;padding-bottom: 20px;">
-                <img v-for="(img, index) in imgs" :src="img" :key="index">
+                <img v-for="(img, index) in imgs" :src="img.url" :key="index">
             </div>
         </main>
     </div>
@@ -65,15 +65,18 @@
             const selected = Vue.ref('');
             const quality = Vue.ref(0.92);
             const imgs = Vue.ref([]);
-            let oldselected = ""
 
             async function fileupload() {
                 const f = file.value;
                 errmsg.value = "";
-                oldselected = selected.value;
 
                 if (selected.value == "") {
                     errmsg.value = "请选择转换格式";
+                    return;
+                }
+
+                if (f.files.length == 0) {
+                    errmsg.value = "请选择文件";
                     return;
                 }
 
@@ -83,8 +86,11 @@
                         return;
                     }
                     const u = URL.createObjectURL(v)
-                    const uu = await conver(oldselected, quality.value, u);
-                    imgs.value.push(uu);
+                    const uu = await conver(selected.value, quality.value, u);
+                    imgs.value.push({
+                        url: uu,
+                        ext: selected.value
+                    });
                 }
                 f.files = []
             }
@@ -94,8 +100,8 @@
                 for (const v of imgs.value) {
                     i++;
                     const a = document.createElement('a');
-                    a.href = v;
-                    let ext = oldselected
+                    a.href = v.url;
+                    let ext = v.ext
                     if (ext == "jpeg") {
                         ext = "jpg"
                     }
@@ -106,7 +112,7 @@
 
             function clean(){
                 for (const v of imgs.value) {
-                    URL.revokeObjectURL(v);
+                    URL.revokeObjectURL(v.url);
                 }
                 imgs.value = []
             }
