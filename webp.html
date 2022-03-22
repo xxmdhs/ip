@@ -46,7 +46,7 @@
             <p v-if="errmsg" style="color: red;">{{ errmsg }}</p>
             <div style="display: grid;grid-template-columns: 8em 5em;column-gap: 10px;">
                 <button v-if="imgs.length" @click="alldownload">全部下载</button>
-                <button v-if="imgs.length" @click="imgs = []">清空</button>
+                <button v-if="imgs.length" @click="clean">清空</button>
             </div>
 
             <div class="imgs" v-if="imgs.length"
@@ -104,6 +104,13 @@
                 }
             }
 
+            function clean(){
+                for (const v of imgs.value) {
+                    URL.revokeObjectURL(v);
+                }
+                imgs.value = []
+            }
+
             async function conver(f, q, url) {
                 let canvas = document.createElement('canvas');
                 let ctx = canvas.getContext('2d');
@@ -116,7 +123,11 @@
                         canvas.height = image.height;
                         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
                         URL.revokeObjectURL(f);
-                        resolve(canvas.toDataURL(`image/${f}`, q))
+                        canvas.toBlob((b) => {
+                            const u = URL.createObjectURL(b);
+                            resolve(u);
+                        }, `image/${f}`, q)
+                        
                     }
                 })
             }
@@ -128,7 +139,8 @@
                 quality,
                 imgs,
                 fileupload,
-                alldownload
+                alldownload,
+                clean
             }
         },
     }).mount('#app')
