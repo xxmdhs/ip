@@ -51,7 +51,10 @@
 
             <div class="imgs" v-if="imgs.length"
                 style="display: grid;grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));gap: 15px;align-items:center;padding-bottom: 20px;">
-                <img v-for="(img, index) in imgs" :src="img.url" :key="index">
+                <div v-for="(img, index) in imgs" :key="index">
+                    <img :src="img.url">
+                    <span>{{ img.size / 1000 / 1000 }}MB</span>
+                </div>
             </div>
         </main>
     </div>
@@ -86,13 +89,15 @@
                         return;
                     }
                     const u = URL.createObjectURL(v)
-                    const uu = await conver(selected.value, quality.value, u);
+                    const b = await conver(selected.value, quality.value, u);
+                    const uu = URL.createObjectURL(b)
+
                     imgs.value.push({
                         url: uu,
-                        ext: selected.value
+                        ext: selected.value,
+                        size: b.size
                     });
                 }
-                f.files = []
             }
 
             function alldownload() {
@@ -110,7 +115,7 @@
                 }
             }
 
-            function clean(){
+            function clean() {
                 for (const v of imgs.value) {
                     URL.revokeObjectURL(v.url);
                 }
@@ -130,10 +135,9 @@
                         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
                         URL.revokeObjectURL(f);
                         canvas.toBlob((b) => {
-                            const u = URL.createObjectURL(b);
-                            resolve(u);
+                            resolve(b);
                         }, `image/${f}`, q)
-                        
+
                     }
                 })
             }
