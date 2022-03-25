@@ -132,6 +132,8 @@
                     image.onload = () => {
                         canvas.width = image.width;
                         canvas.height = image.height;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
                         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
                         URL.revokeObjectURL(f);
                         canvas.toBlob((b) => {
