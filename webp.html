@@ -90,6 +90,7 @@
                     }
                     const u = URL.createObjectURL(v)
                     const b = await conver(selected.value, quality.value, u);
+                    URL.revokeObjectURL(u);
                     const uu = URL.createObjectURL(b)
 
                     imgs.value.push({
@@ -137,7 +138,6 @@
                             ctx.fillRect(0, 0, canvas.width, canvas.height);
                         }
                         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-                        URL.revokeObjectURL(f);
                         canvas.toBlob((b) => {
                             resolve(b);
                         }, `image/${f}`, q)
