@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>查看 jpeg 质量</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@latest/css/pico.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.29/dist/vue.global.js"></script>
+    <script src="./wasm_exec.js"></script>
+    <style type="text/css">
+        header {
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+    </style>
+    <script>
+        if (window.fetch == null || window.WebAssembly == null) {
+            alert("请使用最新版本的 chrome 浏览器");
+        }
+    </script>
+</head>
+
+
+
+<body>
+    <div id="app">
+        <header>
+            <nav class="container-fluid">
+                <ul>
+                    <li><strong>查看 jpeg 质量</strong></li>
+                </ul>
+                <ul>
+                </ul>
+            </nav>
+        </header>
+        <main class="container">
+            <input type="file" ref="file" accept="image/JPEG" @change="fileupload" v-if="!load">
+            <p v-if="load">{{ load }}</p>
+            <p v-if="quality">质量：{{ quality }}</p>
+            <p v-if="errmsg" style="color: red;">{{ errmsg }}</p>
+            <div v-show="imgurl">
+                <img :src="imgurl" />
+                <p></p>
+            </div>
+        </main>
+    </div>
+</body>
+
+<script type="text/javascript">
+    Vue.createApp({
+        setup(props, context) {
+            let go;
+            try {
+                go = new Go();
+            } catch (error) {
+                alert("请使用最新版本的 chrome 浏览器");
+            }
+            async function fetchAndInstantiate() {
+                const response = await fetch("./ip.wasm");
+                const buffer = await response.arrayBuffer();
+                const obj = await WebAssembly.instantiate(buffer, go.importObject)
+                go.run(obj.instance);
+            }
+            const file = Vue.ref(null);
+            const load = Vue.ref("加载 wasm 中");
+            const errmsg = Vue.ref("");
+            const quality = Vue.ref("");
+            const imgurl = Vue.ref("");
+
+            (async () => {
+                await fetchAndInstantiate();
+                load.value = "";
+            })()
+
+
+            async function fileupload() {
+                URL.revokeObjectURL(imgurl.value);
+                const f = file.value;
+                errmsg.value = "";
+                load.value = "检测中";
+                const b = new Uint8Array(await f.files[0].arrayBuffer())
+                const q = getquality(b)
+                const bolb = new Blob([b], {
+                    type: "image/jpeg"
+                })
+                const url = URL.createObjectURL(bolb)
+                imgurl.value = url
+                if (typeof (q.err) != "undefined") {
+                    load.value = "";
+                    errmsg.value = q.err;
+                }
+                quality.value = q;
+                load.value = "";
+            }
+
+            return {
+                file,
+                fileupload,
+                load,
+                errmsg,
+                quality,
+                imgurl
+            }
+        },
+    }).mount('#app')
+
+
+</script>
+
+</html>
