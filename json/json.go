@@ -14,7 +14,7 @@ import (
 
 func main() {
 	vecty.SetTitle("json2struct playground")
-	vecty.AddStylesheet("https://cdn.jsdelivr.net/npm/skeleton-css@2.0.4/css/skeleton.min.css")
+	vecty.AddStylesheet("https://lf9-cdn-tos.bytecdntp.com/cdn/expire-1-M/skeleton/2.0.4/skeleton.min.css")
 	vecty.AddStylesheet("app.css")
 	p := &PageView{
 		Input: `{
