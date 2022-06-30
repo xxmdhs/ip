@@ -17,7 +17,7 @@
 	</script>
 	<script>
 		async function getDb() {
-			let f = await fetch("https://cdn.jsdelivr.net/gh/lionsoul2014/ip2region/data/ip2region.db")
+			let f = await fetch("https://cdn.jsdelivr.net/gh/lionsoul2014/ip2region/data/ip2region.xdb")
 			if (f.status != 200) {
 				throw new Error(f.statusText)
 			}

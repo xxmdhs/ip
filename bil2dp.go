@@ -11,7 +11,7 @@ import (
 
 func bil2dp(b []byte) ([]byte, error) {
 	v := Result{}
-	err = xml.Unmarshal(b, &v)
+	err := xml.Unmarshal(b, &v)
 	if err != nil {
 		return nil, fmt.Errorf("bil2dp: %w", err)
 	}
@@ -49,7 +49,7 @@ func bil2dp(b []byte) ([]byte, error) {
 		l[4] = v.Value
 		d.Data = append(d.Data, l)
 	}
-	b, err := json.Marshal(d)
+	b, err = json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("bil2dp: %w", err)
 	}

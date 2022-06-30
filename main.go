@@ -1,7 +1,10 @@
 package main
 
 import (
+	"strings"
 	"syscall/js"
+
+	"github.com/lionsoul2014/ip2region/binding/golang/xdb"
 )
 
 func main() {
@@ -19,7 +22,7 @@ func main() {
 	select {}
 }
 
-var db *Ip2Region
+var db *xdb.Searcher
 
 func setDB(this js.Value, args []js.Value) interface{} {
 	if len(args) != 1 {
@@ -28,7 +31,9 @@ func setDB(this js.Value, args []js.Value) interface{} {
 	array := args[0]
 	inBuf := make([]uint8, array.Get("byteLength").Int())
 	js.CopyBytesToGo(inBuf, array)
-	db, err = New(inBuf)
+
+	var err error
+	db, err = xdb.NewWithBuffer(inBuf)
 	if err != nil {
 		panic(err)
 	}
@@ -41,10 +46,11 @@ func getIp(this js.Value, args []js.Value) interface{} {
 	}
 	ip := args[0].String()
 	go func() {
-		info, err := db.MemorySearch(ip)
+		str, err := db.SearchByStr(ip)
 		if err != nil {
 			panic(err)
 		}
+		info := Str2IpInfo(str)
 		m := make(map[string]interface{})
 		m["Country"] = info.Country
 		m["Region"] = info.Region
@@ -62,4 +68,27 @@ func ubb2htm(this js.Value, args []js.Value) interface{} {
 		panic("len(args) != 1")
 	}
 	return js.ValueOf(ubb2html(args[0].String()))
+}
+
+type IpInfo struct {
+	Country  string
+	Region   string
+	Province string
+	City     string
+	ISP      string
+}
+
+func Str2IpInfo(str string) IpInfo {
+	s := strings.Split(str, "|")
+	return IpInfo{
+		Country:  s[0],
+		Region:   s[1],
+		Province: s[2],
+		City:     s[3],
+		ISP:      s[4],
+	}
+}
+
+func (ip IpInfo) String() string {
+	return ip.Country + "|" + ip.Region + "|" + ip.Province + "|" + ip.City + "|" + ip.ISP
 }
