@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>scrypt online</title>
+    <link rel="stylesheet" href="https://unpkg.com/xp.css">
+    <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/3.2.31/vue.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/juanelas/scrypt-pbkdf@master/dist/bundles/scrypt-pbkdf.umd.js"></script>
+    <style type="text/css">
+        .grid-2 {
+            display: grid;
+            align-items: center;
+            grid-template-columns: repeat(1, 5em 10em);
+        }
+
+        @media (min-width: 1024px) {
+            .grid-2 {
+                display: grid;
+                align-items: center;
+                column-gap: 0.5em;
+                grid-template-columns: repeat(1, 5em 15em);
+            }
+
+            .window {
+                width: 50em;
+                margin: auto;
+            }
+        }
+    </style>
+</head>
+
+
+
+<body>
+    <div id="app">
+        <div class="window">
+            <div class="title-bar">
+                <div class="title-bar-text">
+                    scrypt online
+                </div>
+
+                <div class="title-bar-controls">
+                    <button aria-label="Close" @click="close()"></button>
+                </div>
+            </div>
+            <div class="window-body">
+                <div class="grid-2">
+                    <p>password: </p>
+                    <input type="text" v-model="pass" />
+                    <p>salt: </p>
+                    <input type="text" v-model="salt" />
+                    <p>len：</p>
+                    <input type="text" v-model="len" />
+                    <p>N：</p>
+                    <input type="text" v-model="N" />
+                    <p>r：</p>
+                    <input type="text" v-model="r" />
+                    <p>p：</p>
+                    <input type="text" v-model="p" />
+                </div>
+
+                <section class="field-row" style="justify-content: flex-end">
+                    <button @click="scrypy">OK</button>
+                </section>
+            </div>
+        </div>
+        <div class="window" style="margin-top: 10px;" v-show="outputShow">
+            <div class="title-bar">
+                <div class="title-bar-text">
+                    output
+                </div>
+                <div class="title-bar-controls">
+                    <button aria-label="Close" @click="outputShow = false"></button>
+                </div>
+            </div>
+            <div class="window-body">
+                <pre style="white-space: pre-wrap;word-break: break-all">output: {{ outhash }}</pre>
+                <br />
+                <pre>time: {{ ctime }}</pre>
+            </div>
+        </div>
+    </div>
+</body>
+
+<script type="text/javascript">
+    Vue.createApp({
+        setup(props, context) {
+            const pass = Vue.ref("")
+            const salt = Vue.ref("")
+            const len = Vue.ref(32)
+            const N = Vue.ref(65536)
+            const r = Vue.ref(8)
+            const p = Vue.ref(1)
+            const outputShow = Vue.ref(false)
+            const outhash = Vue.ref("")
+            const ctime = Vue.ref("")
+
+            function close() {
+                window.close()
+            }
+
+            async function scrypy() {
+                try {
+                    const scryptParams = {
+                        N: Number(N.value),
+                        r: Number(r.value),
+                        p: Number(p.value),
+                    }
+                    const st = new Date()
+                    const key = await scryptPbkdf.scrypt(pass.value, salt.value, Number(len.value), scryptParams)
+                    outhash.value = hex(key)
+                    ctime.value = (new Date() - st) + "ms"
+                    outputShow.value = true
+                } catch (e) {
+                    alert(String(e))
+                    console.error(e)
+                }
+            }
+
+            const byteToHex = [];
+            for (let n = 0; n <= 0xff; ++n) {
+                const hexOctet = n.toString(16).padStart(2, "0");
+                byteToHex.push(hexOctet);
+            }
+            function hex(arrayBuffer) {
+                const buff = new Uint8Array(arrayBuffer);
+                const hexOctets = [];
+                for (let i = 0; i < buff.length; ++i)
+                    hexOctets.push(byteToHex[buff[i]]);
+
+                return hexOctets.join("");
+            }
+
+            return {
+                close,
+                pass,
+                salt,
+                len,
+                N,
+                r,
+                p,
+                outputShow,
+                scrypy,
+                outhash,
+                ctime
+            }
+        },
+    }).mount('#app')
+
+
+
+</script>
+
+</html>
