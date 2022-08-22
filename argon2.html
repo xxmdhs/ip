@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>scrypt online</title>
+    <title>argon2 online</title>
     <link rel="stylesheet" href="https://unpkg.com/xp.css">
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/3.2.31/vue.global.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hash-wasm@4/dist/scrypt.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hash-wasm@4/dist/argon2.umd.min.js"></script>
     <style type="text/css">
         .grid-2 {
             display: grid;
@@ -38,7 +38,7 @@
         <div class="window">
             <div class="title-bar">
                 <div class="title-bar-text">
-                    scrypt online
+                    argon2 online
                 </div>
 
                 <div class="title-bar-controls">
@@ -51,14 +51,14 @@
                     <input type="text" v-model="pass" />
                     <p>salt: </p>
                     <input type="text" v-model="salt" />
-                    <p>len：</p>
+                    <p>len: </p>
                     <input type="text" v-model="len" />
-                    <p>N：</p>
-                    <input type="text" v-model="N" />
-                    <p>r：</p>
-                    <input type="text" v-model="r" />
-                    <p>p：</p>
-                    <input type="text" v-model="p" />
+                    <p>memorySize: </p>
+                    <input type="text" v-model="memorySize" />
+                    <p>parallelism: </p>
+                    <input type="text" v-model="iterations" />
+                    <p>parallelism: </p>
+                    <input type="text" v-model="parallelism" />
                 </div>
 
                 <section class="field-row" style="justify-content: flex-end">
@@ -90,9 +90,9 @@
             const pass = Vue.ref("")
             const salt = Vue.ref("")
             const len = Vue.ref(32)
-            const N = Vue.ref(65536)
-            const r = Vue.ref(8)
-            const p = Vue.ref(1)
+            const memorySize = Vue.ref(40000)
+            const iterations = Vue.ref(1)
+            const parallelism = Vue.ref(1)
             const outputShow = Vue.ref(false)
             const outhash = Vue.ref("")
             const ctime = Vue.ref("")
@@ -104,13 +104,14 @@
             async function scrypy() {
                 try {
                     const st = new Date()
-                    const key = await hashwasm.scrypt({
+                    const key = await hashwasm.argon2id({
                         password: pass.value,
-                        salt: salt.value,
-                        costFactor: Number(N.value),
-                        blockSize: Number(r.value),
-                        parallelism: Number(p.value),
-                        hashLength: Number(len.value)
+                        salt: salt.value, // salt is a buffer containing random bytes
+                        parallelism: Number(parallelism.value),
+                        iterations: Number(iterations.value),
+                        memorySize: Number(memorySize.value),
+                        hashLength: Number(len.value), // output size = 32 bytes
+                        outputType: 'encoded', // return standard encoded string containing parameters needed to verify the key
                     })
                     outhash.value = key
                     ctime.value = (new Date() - st) + "ms"
@@ -120,15 +121,15 @@
                     console.error(e)
                 }
             }
-
+           
             return {
                 close,
                 pass,
                 salt,
                 len,
-                N,
-                r,
-                p,
+                memorySize,
+                iterations,
+                parallelism,
                 outputShow,
                 scrypy,
                 outhash,
