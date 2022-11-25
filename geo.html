@@ -22,11 +22,14 @@
             <transition-group class="result" tag="div" name="list">
                 <div class="card" v-for="{ip, result, id, spam, hostname} in resultList" :key="id">
                     <div class="card-body">
-                        <span class="card-title">{{ ip }}</span>
+                        <div
+                            style="flex: 1 0 100%;display: flex;flex-wrap: wrap;align-items: baseline;column-gap: 2px;">
+                            <span class="card-title">{{ ip }}</span>
+                            <span class="card-text" v-if="hostname">{{ hostname }}</span>
+                        </div>
                         <span class="card-text">{{ result.country || ""}}</span>
                         <span class="card-text">{{ result.region || ""}}</span>
                         <span class="card-text">{{ result.city || ""}}</span>
-                        <span class="card-text isp" v-if="hostname">{{ hostname }}</span>
                         <span class="card-text isp">{{ result.isp || ""}}</span>
                         <span class="card-text">{{ result.ASN ? "AS" + result.ASN : "" }}</span>
                         <span class="card-text"><a href="https://www.spamhaus.org/" target="_blank">{{ spam || ""
@@ -92,13 +95,16 @@
                     const r = await fetch("https://auto.xmdhs.top:37981/ip/" + ip.value)
                     const result = await r.json()
                     if (r.status != 200) {
-                        resultList.value.unshift({
-                            ip: ip.value,
-                            result: { isp: result.msg },
-                            id: id.value
-                        })
-                        return
+                        throw result.msg
                     }
+                    const ipInfo = {
+                        ip: ip.value,
+                        result: result,
+                        id: id.value,
+                        spam: Vue.ref(""),
+                        hostname: Vue.ref("")
+                    }
+                    resultList.value.unshift(ipInfo)
 
                     const iplreverse = ip.value.split(".").reverse().join(".")
                     const domain = iplreverse + ".zen.spamhaus.org."
@@ -114,6 +120,7 @@
                         }
                     })
                     const spams = Object.keys(spam).join(" ")
+                    ipInfo.spam.value = spams
 
                     const pr = await fetch(`https://1.1.1.1/dns-query?name=${iplreverse}.in-addr.arpa&type=PTR`, {
                         "headers": {
@@ -129,14 +136,7 @@
                         hostname = pj.Answer[0].data
                         hostname = hostname.substr(0, hostname.length - 1)
                     }
-
-                    resultList.value.unshift({
-                        ip: ip.value,
-                        result: result,
-                        id: id.value,
-                        spam: spams,
-                        hostname: hostname
-                    })
+                    ipInfo.hostname.value = hostname
                 } catch (e) {
                     resultList.value.unshift({
                         ip: ip.value,
@@ -177,12 +177,12 @@
         flex-wrap: wrap;
         column-gap: 5px;
         word-wrap: break-word;
+        align-items: baseline;
     }
 
     .card-title {
         font-size: 24px;
         font-weight: bold;
-        flex: 1 0 100%;
     }
 
     .isp {
