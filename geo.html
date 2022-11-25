@@ -20,12 +20,13 @@
             </form>
             <hr>
             <transition-group class="result" tag="div" name="list">
-                <div class="card" v-for="{ip, result, id, spam} in resultList" :key="id">
+                <div class="card" v-for="{ip, result, id, spam, hostname} in resultList" :key="id">
                     <div class="card-body">
                         <span class="card-title">{{ ip }}</span>
                         <span class="card-text">{{ result.country || ""}}</span>
                         <span class="card-text">{{ result.region || ""}}</span>
                         <span class="card-text">{{ result.city || ""}}</span>
+                        <span class="card-text isp" v-if="hostname">{{ hostname }}</span>
                         <span class="card-text isp">{{ result.isp || ""}}</span>
                         <span class="card-text">{{ result.ASN ? "AS" + result.ASN : "" }}</span>
                         <span class="card-text"><a href="https://www.spamhaus.org/" target="_blank">{{ spam || ""
@@ -66,12 +67,30 @@
                 return _spamCode[code] || "Err code: " + code;
             }
 
+            async function getip(ip) {
+                const ipl = ip.split(".")
+                let isIp = true
+                ipl.forEach(v => { if (isNaN(v)) isIp = false })
+                if (isIp) {
+                    return ip
+                }
+                const rr = await fetch(`https://dns.alidns.com/resolve?name=${ip}&type=1`)
+                const rrj = await rr.json()
+                if (rr.status != 200) {
+                    throw "查询失败"
+                }
+                if (rrj.Answer.length != 0) {
+                    return rrj.Answer[0].data
+                }
+            }
+
 
             async function submit() {
                 id.value = id.value + 1
                 try {
-                    let r = await fetch("https://auto.xmdhs.top:37981/ip/" + ip.value)
-                    let result = await r.json()
+                    ip.value = await getip(ip.value)
+                    const r = await fetch("https://auto.xmdhs.top:37981/ip/" + ip.value)
+                    const result = await r.json()
                     if (r.status != 200) {
                         resultList.value.unshift({
                             ip: ip.value,
@@ -81,18 +100,12 @@
                         return
                     }
 
-                    let ipl = ip.value.split(".")
-                    let domain = ipl.reverse().join(".") + ".zen.spamhaus.org."
-                    let rr = await fetch(`https://dns.alidns.com/resolve?name=${domain}&type=1`)
-
-                    let rrj = await rr.json()
+                    const iplreverse = ip.value.split(".").reverse().join(".")
+                    const domain = iplreverse + ".zen.spamhaus.org."
+                    const rr = await fetch(`https://dns.alidns.com/resolve?name=${domain}&type=1`)
+                    const rrj = await rr.json()
                     if (rr.status != 200) {
-                        resultList.value.unshift({
-                            ip: ip.value,
-                            result: { isp: "查询失败" },
-                            id: id.value
-                        })
-                        return
+                        throw "查询失败"
                     }
                     let spam = {}
                     rrj.Answer?.forEach(r => {
@@ -100,12 +113,29 @@
                             spam[spamCode(r.data)] = true
                         }
                     })
-                    let spams = Object.keys(spam).join(" ")
+                    const spams = Object.keys(spam).join(" ")
+
+                    const pr = await fetch(`https://1.1.1.1/dns-query?name=${iplreverse}.in-addr.arpa&type=PTR`, {
+                        "headers": {
+                            "accept": "application/dns-json"
+                        }
+                    })
+                    const pj = await pr.json()
+                    if (pr.status != 200) {
+                        throw "查询失败"
+                    }
+                    let hostname = ""
+                    if (pj.Answer && pj.Answer.length != 0) {
+                        hostname = pj.Answer[0].data
+                        hostname = hostname.substr(0, hostname.length - 1)
+                    }
+
                     resultList.value.unshift({
                         ip: ip.value,
                         result: result,
                         id: id.value,
-                        spam: spams
+                        spam: spams,
+                        hostname: hostname
                     })
                 } catch (e) {
                     resultList.value.unshift({
@@ -113,6 +143,7 @@
                         result: { isp: e },
                         id: id.value
                     })
+                    console.warn(e)
                     return
                 }
             }
