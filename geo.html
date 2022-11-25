@@ -111,7 +111,8 @@
                     const rr = await fetch(`https://dns.alidns.com/resolve?name=${domain}&type=1`)
                     const rrj = await rr.json()
                     if (rr.status != 200) {
-                        throw "查询失败"
+                        console.warn(rr)
+                        return
                     }
                     let spam = {}
                     rrj.Answer?.forEach(r => {
@@ -129,7 +130,8 @@
                     })
                     const pj = await pr.json()
                     if (pr.status != 200) {
-                        throw "查询失败"
+                        console.warn(pr)
+                        return
                     }
                     let hostname = ""
                     if (pj.Answer && pj.Answer.length != 0) {
