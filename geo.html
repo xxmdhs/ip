@@ -82,9 +82,10 @@
                 if (rr.status != 200) {
                     throw "查询失败"
                 }
-                if (rrj.Answer.length != 0) {
+                if (rrj.Answer && rrj.Answer.length != 0) {
                     return rrj.Answer[0].data
                 }
+                return ip
             }
 
 
