@@ -99,7 +99,9 @@
                 id.value = id.value + 1
                 try {
                     ip.value = await getip(ip.value)
-                    const r = await fetch("https://auto.xmdhs.top:37981/ip/" + geo.value ? ip.value + "?geo=true" : ip.value)
+                    const u = new URL("https://auto.xmdhs.top:37981/ip/" + ip.value)
+                    u.searchParams.set("geo", geo.value ? "true" : "false")
+                    const r = await fetch(u.toString())
                     const result = await r.json()
                     if (r.status != 200) {
                         throw result.msg
@@ -161,7 +163,8 @@
                 ip: ip,
                 resultList: resultList,
                 id: id,
-                submit
+                submit,
+                geo
             }
         },
     }).mount('#app')
