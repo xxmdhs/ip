@@ -17,6 +17,10 @@
             <form id="getip" @submit.prevent="submit">
                 <input type="search" id="ip" placeholder="1.1.1.1" name="ip" v-model.trim="ip">
                 <input type="submit" value="查询">
+                <label style="margin-left: 10px">
+                    <input type="checkbox" v-model="geo">
+                    geoip
+                </label>
             </form>
             <hr>
             <transition-group class="result" tag="div" name="list">
@@ -48,6 +52,7 @@
             const resultList = Vue.ref([]);
             const ip = Vue.ref("");
             const id = Vue.ref(0);
+            const geo = Vue.ref(false);
 
             /*
             127.0.0.2	SBL	Spamhaus SBL Data
@@ -94,7 +99,7 @@
                 id.value = id.value + 1
                 try {
                     ip.value = await getip(ip.value)
-                    const r = await fetch("https://auto.xmdhs.top:37981/ip/" + ip.value)
+                    const r = await fetch("https://auto.xmdhs.top:37981/ip/" + geo.value ? ip.value + "?geo=true" : ip.value)
                     const result = await r.json()
                     if (r.status != 200) {
                         throw result.msg
