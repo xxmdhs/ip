@@ -17,10 +17,11 @@
             <form id="getip" @submit.prevent="submit">
                 <input type="search" id="ip" placeholder="1.1.1.1" name="ip" v-model.trim="ip">
                 <input type="submit" value="查询">
-                <label style="margin-left: 10px">
-                    <input type="checkbox" v-model="geo">
-                    geoip
-                </label>
+                <select v-model="geo" style="margin-left: 10px">
+                    <option value="tencent">tencent</option>
+                    <option value="geo">geoip</option>
+                    <option value="ip2">ip2location</option>
+                </select>
             </form>
             <hr>
             <transition-group class="result" tag="div" name="list">
@@ -52,7 +53,7 @@
             const resultList = Vue.ref([]);
             const ip = Vue.ref("");
             const id = Vue.ref(0);
-            const geo = Vue.ref(false);
+            const geo = Vue.ref("tencent");
 
             /*
             127.0.0.2	SBL	Spamhaus SBL Data
@@ -100,12 +101,13 @@
                 try {
                     ip.value = await getip(ip.value)
                     const u = new URL("https://auto.xmdhs.top:37981/ip/" + ip.value)
-                    u.searchParams.set("geo", geo.value ? "true" : "false")
+                    u.searchParams.set("type", geo.value)
                     const r = await fetch(u.toString())
                     const result = await r.json()
                     if (r.status != 200) {
                         throw result.msg
                     }
+                    result.isp = `${result.isp} (${geo.value})`
                     const ipInfo = {
                         ip: ip.value,
                         result: result,
