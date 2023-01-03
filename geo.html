@@ -14,13 +14,14 @@
     <div id="app">
         <div class="container-lg px-3 my-5 markdown-body">
             <h1>ip 地址查询</h1>
-            <form id="getip" @submit.prevent="submit">
+            <form id="getip" @submit.prevent="submit" style="display: flex;column-gap: 2px;flex-wrap:wrap;">
                 <input type="search" id="ip" placeholder="1.1.1.1" name="ip" v-model.trim="ip">
                 <input type="submit" value="查询">
-                <select v-model="geo" style="margin-left: 10px">
+                <select v-model="geo">
                     <option value="tencent">tencent</option>
-                    <option value="geo">geoip</option>
-                    <option value="ip2">ip2location</option>
+                    <option value="geoip">geoip</option>
+                    <option value="ip2location">ip2location</option>
+                    <option value="qqwry">qqwry</option>
                 </select>
             </form>
             <hr>
@@ -40,6 +41,9 @@
                         <span class="card-text">{{ result.ASN ? "AS" + result.ASN : "" }}</span>
                         <span class="card-text"><a href="https://www.spamhaus.org/" target="_blank">{{ spam || ""
                                 }}</a></span>
+                        <div style="display: flex;flex:1;justify-content:flex-end">
+                            <span class="card-text">{{ result.type || "" }}</span>
+                        </div>
                     </div>
                 </div>
             </transition-group>
@@ -107,7 +111,7 @@
                     if (r.status != 200) {
                         throw result.msg
                     }
-                    result.isp = `${result.isp} (${geo.value})`
+                    result.type = geo.value
                     const ipInfo = {
                         ip: ip.value,
                         result: result,
