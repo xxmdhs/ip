@@ -84,7 +84,7 @@
                 URL.revokeObjectURL(u);
                 const uu = URL.createObjectURL(b)
 
-                imgs.value.push({
+                imgs.value.unshift({
                     url: uu,
                     ext: selected.value,
                     size: b.size,
