@@ -105,7 +105,7 @@
             document.addEventListener('paste', async (event) => {
                 const items = event.clipboardData && event.clipboardData.items;
                 for (const v of items) {
-                    if (v.kind != "file") return
+                    if (v.kind != "file") continue
                     await doFile(v.getAsFile())
                 }
             });
