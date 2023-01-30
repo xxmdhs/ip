@@ -69,37 +69,47 @@
             const quality = Vue.ref(0.8);
             const imgs = Vue.ref([]);
 
-            async function fileupload() {
-                const f = file.value;
+            async function doFile(file) {
                 errmsg.value = "";
-
                 if (selected.value == "") {
                     errmsg.value = "请选择转换格式";
                     return;
                 }
+                if (file.type.indexOf('image') === -1) {
+                    errmsg.value = "请选择图片文件";
+                    return;
+                }
+                const u = URL.createObjectURL(file)
+                const b = await conver(selected.value, quality.value, u);
+                URL.revokeObjectURL(u);
+                const uu = URL.createObjectURL(b)
 
+                imgs.value.push({
+                    url: uu,
+                    ext: selected.value,
+                    size: b.size
+                })
+            }
+
+            async function fileupload() {
+                const f = file.value;
                 if (f.files.length == 0) {
                     errmsg.value = "请选择文件";
                     return;
                 }
-
                 for (const v of f.files) {
-                    if (v.type.indexOf('image') === -1) {
-                        errmsg.value = "请选择图片文件";
-                        return;
-                    }
-                    const u = URL.createObjectURL(v)
-                    const b = await conver(selected.value, quality.value, u);
-                    URL.revokeObjectURL(u);
-                    const uu = URL.createObjectURL(b)
-
-                    imgs.value.push({
-                        url: uu,
-                        ext: selected.value,
-                        size: b.size
-                    });
+                    await doFile(v)
                 }
             }
+
+            document.addEventListener('paste', async (event) => {
+                const items = event.clipboardData && event.clipboardData.items;
+                for (const v of items) {
+                    if (v.kind != "file") return
+                    await doFile(v.getAsFile())
+                }
+            });
+
 
             function alldownload() {
                 let i = 0
