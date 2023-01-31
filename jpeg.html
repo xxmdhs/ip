@@ -35,9 +35,12 @@
             </nav>
         </header>
         <main class="container">
-            <input type="file" ref="file" accept="image/JPEG" @change="fileupload" v-if="!load">
+            <input type="file" ref="file" accept="image/JPEG"
+                @change="()=> file && file.files.length > 0 && fileupload(file.files[0])" v-if="!load">
             <p v-if="load">{{ load }}</p>
             <p v-if="quality">质量：{{ quality }}</p>
+            <p v-if="size">大小：{{ size / 1000 / 1000 }}MB</p>
+            <p v-if="errmsg">类型：{{ imatype }}</p>
             <p v-if="errmsg" style="color: red;">{{ errmsg }}</p>
             <div v-show="imgurl">
                 <img :src="imgurl" />
@@ -66,6 +69,8 @@
             const load = Vue.ref("加载 wasm 中");
             const errmsg = Vue.ref("");
             const quality = Vue.ref("");
+            const size = Vue.ref(0);
+            const imatype = Vue.ref("")
             const imgurl = Vue.ref("");
 
             (async () => {
@@ -73,13 +78,23 @@
                 load.value = "";
             })()
 
+            document.addEventListener('paste', async (event) => {
+                const items = event.clipboardData && event.clipboardData.items;
+                for (const v of items) {
+                    if (v.kind != "file") continue
+                    await fileupload(v.getAsFile())
+                    return
+                }
+            });
 
-            async function fileupload() {
+
+            async function fileupload(f) {
                 URL.revokeObjectURL(imgurl.value);
-                const f = file.value;
                 errmsg.value = "";
+                size.value = f.size
                 load.value = "检测中";
-                const b = new Uint8Array(await f.files[0].arrayBuffer())
+                imatype.value = f.type
+                const b = new Uint8Array(await f.arrayBuffer())
                 const q = getquality(b)
                 const bolb = new Blob([b], {
                     type: "image/jpeg"
@@ -101,6 +116,8 @@
                 load,
                 errmsg,
                 quality,
+                size,
+                imatype,
                 imgurl
             }
         },
