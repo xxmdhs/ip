@@ -202,11 +202,16 @@
                 if (quality == 100) {
                     l = ['-lossless', "1"]
                 }
+                let vf = [];
                 if (fps.value != "") {
-                    l.push(...["-filter:v", "fps=fps=" + fps.value])
+                    vf.push("fps=fps=" + fps.value)
                 }
                 if (size.value != "") {
-                    l.push(...["-vf", "scale="+size.value])
+                    vf.push("scale=" + size.value)
+                }
+                if (vf.length != 0) {
+                    l.push("-vf")
+                    l.push(vf.join(","))
                 }
                 await ffmpeg.run('-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp');
                 const r = ffmpeg.FS('readFile', 'output.webp');
