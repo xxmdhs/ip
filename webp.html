@@ -90,7 +90,7 @@
                     errmsg.value = "请选择转换格式";
                     return;
                 }
-                if (file.type.indexOf('image') === -1) {
+                if (file.type.indexOf('image') === -1 && selected.value !== "webp") {
                     errmsg.value = "请选择图片文件";
                     return;
                 }
