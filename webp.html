@@ -53,7 +53,7 @@
                 </label>
                 <label>
                     分辨率（如 300:400，300:-1）
-                    <input type="number" v-model="size">
+                    <input v-model="size">
                 </label>
             </div>
             <p v-if="errmsg" style="color: red;">{{ errmsg }}</p>
@@ -206,7 +206,7 @@
                     l.push(...["-filter:v", "fps=fps=" + fps.value])
                 }
                 if (size.value != "") {
-                    l.push(...["-s", size.value])
+                    l.push(...["-vf", "scale="+size.value])
                 }
                 await ffmpeg.run('-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp');
                 const r = ffmpeg.FS('readFile', 'output.webp');
