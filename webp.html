@@ -6,7 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>图片格式转换</title>
     <link rel="stylesheet" href="https://static.xmdhs.com/pico.min.css">
+    <meta http-equiv="origin-trial"
+        content="Avpn5bS3QJyB6GaR4K1t97uyeMh7FAhM5t3hqmK0nG3u1gzAZPbcFVukVOlIa0jO1508BlwuH+KeJVhwblZHawgAAABgeyJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0Ojk5OTkiLCJmZWF0dXJlIjoiVW5yZXN0cmljdGVkU2hhcmVkQXJyYXlCdWZmZXIiLCJleHBpcnkiOjE2ODgwODMxOTl9">
     <script src="https://static.xmdhs.com/vue.global.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <style type="text/css">
         header {
             border-bottom: 1px solid #e5e5e5;
@@ -79,11 +82,17 @@
                     errmsg.value = "请选择图片文件";
                     return;
                 }
-                const u = URL.createObjectURL(file)
-                const b = await conver(selected.value, quality.value, u);
-                URL.revokeObjectURL(u);
+                let b = null;
+                if (selected.value == "webp") {
+                    const u = new Uint8Array(await file.arrayBuffer())
+                    const ru = await Gif2Webp(u, quality.value)
+                    b = new Blob([ru], { type: 'image/webp' })
+                } else {
+                    const u = URL.createObjectURL(file)
+                    b = await conver(selected.value, quality.value, u);
+                    URL.revokeObjectURL(u);
+                }
                 const uu = URL.createObjectURL(b)
-
                 imgs.value.unshift({
                     url: uu,
                     ext: selected.value,
@@ -155,6 +164,37 @@
 
                     }
                 })
+            }
+
+            let affmpeg = null
+            async function loadFfmpeg() {
+                let affmpeg = null
+                if (affmpeg) {
+                    return affmpeg
+                }
+                const { createFFmpeg } = FFmpeg;
+                const ffmpeg = createFFmpeg({
+                    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+                });
+                await ffmpeg.load();
+                affmpeg = ffmpeg
+                ffmpeg.setLogging(true);
+                return ffmpeg;
+            }
+
+            async function Gif2Webp(d, q) {
+                let quality = q * 100
+                const ffmpeg = await loadFfmpeg()
+                ffmpeg.FS('writeFile', '1.gif', d);
+                let l = ['-quality', String(quality)]
+                if (quality == 100) {
+                    l = ['-lossless', "1"]
+                }
+                await ffmpeg.run('-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp');
+                const r = ffmpeg.FS('readFile', 'output.webp');
+                ffmpeg.FS('unlink', '1.gif');
+                ffmpeg.FS('unlink', 'output.webp');
+                return r
             }
 
             return {
