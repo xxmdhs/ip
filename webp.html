@@ -33,7 +33,7 @@
         </header>
         <main class="container">
             <div style="display: grid;grid-template-columns: 15em 5em;column-gap: 10px;">
-                <input type="file" ref="file" accept="image/*" multiple>
+                <input type="file" ref="file" accept="image/*,video/*" multiple>
                 <button @click="fileupload" style="width: 5em;">转换</button>
             </div>
             <select v-model="selected">
@@ -46,6 +46,16 @@
                 质量 0-1 当选择不为 png 时有效
                 <input type="number" v-model="quality">
             </label>
+            <div v-if="selected == 'webp'">
+                <label>
+                    帧率（对于动图）
+                    <input type="number" v-model="fps">
+                </label>
+                <label>
+                    分辨率（如 300:400，300:-1）
+                    <input type="number" v-model="size">
+                </label>
+            </div>
             <p v-if="errmsg" style="color: red;">{{ errmsg }}</p>
             <div style="display: grid;grid-template-columns: 8em 5em;column-gap: 10px;">
                 <button v-if="imgs.length" @click="alldownload">全部下载</button>
@@ -71,6 +81,8 @@
             const selected = Vue.ref('');
             const quality = Vue.ref(0.8);
             const imgs = Vue.ref([]);
+            const fps = Vue.ref('');
+            const size = Vue.ref('');
 
             async function doFile(file) {
                 errmsg.value = "";
@@ -190,6 +202,12 @@
                 if (quality == 100) {
                     l = ['-lossless', "1"]
                 }
+                if (fps.value != "") {
+                    l.push(...["-filter:v", "fps=fps=" + fps.value])
+                }
+                if (size.value != "") {
+                    l.push(...["-s", size.value])
+                }
                 await ffmpeg.run('-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp');
                 const r = ffmpeg.FS('readFile', 'output.webp');
                 ffmpeg.FS('unlink', '1.gif');
@@ -205,7 +223,9 @@
                 imgs,
                 fileupload,
                 alldownload,
-                clean
+                clean,
+                fps,
+                size
             }
         },
     }).mount('#app')
