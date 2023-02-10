@@ -90,10 +90,6 @@
                     errmsg.value = "请选择转换格式";
                     return;
                 }
-                if (file.type.indexOf('image') === -1 && selected.value !== "webp") {
-                    errmsg.value = "请选择图片文件";
-                    return;
-                }
                 let b = null;
                 if (selected.value == "webp") {
                     const u = new Uint8Array(await file.arrayBuffer())
@@ -104,6 +100,10 @@
                     const ru = await any2Apng(u)
                     b = new Blob([ru], { type: 'image/apng' })
                 } else {
+                    if (file.type.indexOf('image') === -1) {
+                        errmsg.value = "请选择图片文件";
+                        return;
+                    }
                     const u = URL.createObjectURL(file)
                     b = await conver(selected.value, quality.value, u);
                     URL.revokeObjectURL(u);
