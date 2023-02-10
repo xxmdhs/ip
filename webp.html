@@ -99,6 +99,10 @@
                     const u = new Uint8Array(await file.arrayBuffer())
                     const ru = await Gif2Webp(u, quality.value)
                     b = new Blob([ru], { type: 'image/webp' })
+                } else if (selected.value == "png" && (file.type.indexOf("gif") || file.type.indexOf("video"))) {
+                    const u = new Uint8Array(await file.arrayBuffer())
+                    const ru = await any2Apng(u)
+                    b = new Blob([ru], { type: 'image/apng' })
                 } else {
                     const u = URL.createObjectURL(file)
                     b = await conver(selected.value, quality.value, u);
@@ -217,6 +221,25 @@
                 const r = ffmpeg.FS('readFile', 'output.webp');
                 ffmpeg.FS('unlink', '1.gif');
                 ffmpeg.FS('unlink', 'output.webp');
+                return r
+            }
+
+            async function any2Apng(d) {
+                const ffmpeg = await loadFfmpeg()
+                ffmpeg.FS('writeFile', '1.gif', d);
+                let vf = [];
+                let l = []
+                if (size.value != "") {
+                    vf.push("scale=" + size.value)
+                }
+                if (vf.length != 0) {
+                    l.push("-vf")
+                    l.push(vf.join(","))
+                }
+                await ffmpeg.run('-i', '1.gif', ...l, "-plays", "0", 'output.apng');
+                const r = ffmpeg.FS('readFile', 'output.apng');
+                ffmpeg.FS('unlink', '1.gif');
+                ffmpeg.FS('unlink', 'output.apng');
                 return r
             }
 
