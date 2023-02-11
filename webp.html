@@ -198,11 +198,10 @@
                 ffmpeg.setLogging(true);
                 return ffmpeg;
             }
+            const ffmpeg = makeWorker(work);
 
             async function Gif2Webp(d, q) {
                 let quality = q * 100
-                const ffmpeg = await loadFfmpeg()
-                ffmpeg.FS('writeFile', '1.gif', d);
                 let l = ['-quality', String(quality)]
                 if (quality == 100) {
                     l = ['-lossless', "1"]
@@ -218,16 +217,12 @@
                     l.push("-vf")
                     l.push(vf.join(","))
                 }
-                await ffmpeg.run('-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp');
-                const r = ffmpeg.FS('readFile', 'output.webp');
-                ffmpeg.FS('unlink', '1.gif');
-                ffmpeg.FS('unlink', 'output.webp');
+                const flag = ['-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp']
+                const r = await ffmpeg([flag, d, 'output.webp'])
                 return r
             }
 
             async function any2Apng(d) {
-                const ffmpeg = await loadFfmpeg()
-                ffmpeg.FS('writeFile', '1.gif', d);
                 let vf = [];
                 let l = []
                 if (size.value != "") {
@@ -237,10 +232,8 @@
                     l.push("-vf")
                     l.push(vf.join(","))
                 }
-                await ffmpeg.run('-i', '1.gif', ...l, "-plays", "0", 'output.apng');
-                const r = ffmpeg.FS('readFile', 'output.apng');
-                ffmpeg.FS('unlink', '1.gif');
-                ffmpeg.FS('unlink', 'output.apng');
+                const flag = ['-i', '1.gif', ...l, "-plays", "0", 'output.apng']
+                const r = await ffmpeg([flag, d, 'output.apng'])
                 return r
             }
 
@@ -259,7 +252,57 @@
         },
     }).mount('#app')
 
+    function work() {
+        let affmpeg = null
+        async function loadFfmpeg() {
+            let affmpeg = null
+            if (affmpeg) {
+                return affmpeg
+            };
+            const ffmpeg = new FFmpeg({
+                mainName: 'main',
+                corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
+                logger: (msg) => {
+                    console.log(msg?.message)
+                },
+            });
+            await ffmpeg.load();
+            affmpeg = ffmpeg
+            return ffmpeg;
+        }
+        onmessage = async ({ data: { jobId, message } }) => {
+            const [flag, d, fname] = message[0]
+            const ffmpeg = await loadFfmpeg()
+            ffmpeg.writeFile('1.gif', d)
+            await ffmpeg.run(...flag);
+            const r = ffmpeg.readFile(fname)
+            ffmpeg.unlink('1.gif')
+            ffmpeg.unlink(fname)
+            postMessage({ jobId, result: r });
+        };
+    }
 
+    function makeWorker(f) {
+        let pendingJobs = {};
+
+        const worker = new Worker(
+            URL.createObjectURL(new Blob([`importScripts('http://localhost:9999/static/ffmpeg.js');(${f.toString()})()`]))
+        );
+
+        worker.onmessage = ({ data: { result, jobId } }) => {
+            // 调用resolve，改变Promise状态
+            pendingJobs[jobId](result);
+            // 删掉，防止key冲突
+            delete pendingJobs[jobId];
+        };
+
+        return (...message) =>
+            new Promise(resolve => {
+                const jobId = String(Math.random());
+                pendingJobs[jobId] = resolve;
+                worker.postMessage({ jobId, message });
+            });
+    };
 </script>
 
 </html>
