@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>图片格式转换</title>
     <link rel="stylesheet" href="static/pico.min.css">
-    <meta http-equiv="origin-trial"
-        content="Avpn5bS3QJyB6GaR4K1t97uyeMh7FAhM5t3hqmK0nG3u1gzAZPbcFVukVOlIa0jO1508BlwuH+KeJVhwblZHawgAAABgeyJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0Ojk5OTkiLCJmZWF0dXJlIjoiVW5yZXN0cmljdGVkU2hhcmVkQXJyYXlCdWZmZXIiLCJleHBpcnkiOjE2ODgwODMxOTl9">
+    <!-- <meta http-equiv="origin-trial"
+        content="Avpn5bS3QJyB6GaR4K1t97uyeMh7FAhM5t3hqmK0nG3u1gzAZPbcFVukVOlIa0jO1508BlwuH+KeJVhwblZHawgAAABgeyJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0Ojk5OTkiLCJmZWF0dXJlIjoiVW5yZXN0cmljdGVkU2hhcmVkQXJyYXlCdWZmZXIiLCJleHBpcnkiOjE2ODgwODMxOTl9"> -->
     <script src="static/vue.global.js"></script>
     <script src="static/ffmpeg.min.js"></script>
     <style type="text/css">
@@ -190,7 +190,8 @@
                 }
                 const { createFFmpeg } = FFmpeg;
                 const ffmpeg = createFFmpeg({
-                    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+                    mainName: 'main',
+                    corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
                 });
                 await ffmpeg.load();
                 affmpeg = ffmpeg
