@@ -286,7 +286,7 @@
         let pendingJobs = {};
 
         const worker = new Worker(
-            URL.createObjectURL(new Blob([`importScripts('http://localhost:9999/static/ffmpeg.js');(${f.toString()})()`]))
+            URL.createObjectURL(new Blob([`importScripts('https://tool.xmdhs.com/static/ffmpeg.js');(${f.toString()})()`]))
         );
 
         worker.onmessage = ({ data: { result, jobId } }) => {
