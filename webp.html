@@ -61,6 +61,7 @@
                 <button v-if="imgs.length" @click="alldownload">全部下载</button>
                 <button v-if="imgs.length" @click="clean">清空</button>
             </div>
+            <progress v-if="progress != 0" :value="progress" max="100"></progress>
 
             <div class="imgs" v-if="imgs.length"
                 style="display: grid;grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));gap: 15px;align-items:center;padding-bottom: 20px;">
@@ -83,6 +84,7 @@
             const imgs = Vue.ref([]);
             const fps = Vue.ref('');
             const size = Vue.ref('');
+            const progress = Vue.ref(0);
 
             async function doFile(file) {
                 errmsg.value = "";
@@ -238,6 +240,35 @@
                 return r
             }
 
+            function makeWorker() {
+                const worker = new Worker(
+                    URL.createObjectURL(new Blob([`importScripts('https://tool.xmdhs.com/static/ffmpeg.js');(${work.toString()})()`]))
+                );
+                let pendingJob;
+
+                worker.onmessage = ({ data }) => {
+                    if (data.type == "r") {
+                        pendingJob(data.data);
+                        worker.terminate()
+                        return
+                    }
+                    if (data.type == "log") {
+                        console.log(data.data.message)
+                    }
+                    if (data.type == "progress"){
+                        progress.value = data.data.ratio * 100
+                        if (data.data.ratio == 1){
+                            progress.value = 0
+                        }
+                    }
+                };
+                return (message) =>
+                    new Promise(resolve => {
+                        pendingJob = resolve;
+                        worker.postMessage(message);
+                    });
+            };
+
             return {
                 errmsg,
                 file,
@@ -247,6 +278,7 @@
                 fileupload,
                 alldownload,
                 clean,
+                progress,
                 fps,
                 size
             }
@@ -284,28 +316,7 @@
         };
     }
 
-    function makeWorker() {
-        const worker = new Worker(
-            URL.createObjectURL(new Blob([`importScripts('https://tool.xmdhs.com/static/ffmpeg.js');(${work.toString()})()`]))
-        );
-        let pendingJob;
 
-        worker.onmessage = ({ data }) => {
-            if (data.type == "r") {
-                pendingJob(data.data);
-                worker.terminate()
-                return
-            }
-            if (data.type == "log") {
-                console.log(data.data.message)
-            }
-        };
-        return (message) =>
-            new Promise(resolve => {
-                pendingJob = resolve;
-                worker.postMessage(message);
-            });
-    };
 </script>
 
 </html>
