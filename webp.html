@@ -263,9 +263,10 @@
             const ffmpeg = new FFmpeg({
                 mainName: 'main',
                 corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
-                logger: (msg) => {
-                    console.log(msg?.message)
+                logger: e => {
+                    postMessage({ type: "log", data: e });
                 },
+                progress: e => postMessage({ type: "progress", data: e })
             });
             await ffmpeg.load();
             affmpeg = ffmpeg
@@ -279,7 +280,7 @@
             const r = ffmpeg.readFile(fname)
             ffmpeg.unlink('1.gif')
             ffmpeg.unlink(fname)
-            postMessage(r);
+            postMessage({ type: "r", data: r });
         };
     }
 
@@ -289,9 +290,15 @@
         );
         let pendingJob;
 
-        worker.onmessage = (result) => {
-            pendingJob(result.data);
-            worker.terminate()
+        worker.onmessage = ({ data }) => {
+            if (data.type == "r") {
+                pendingJob(data.data);
+                worker.terminate()
+                return
+            }
+            if (data.type == "log"){
+                console.log(data.data.message)
+            }
         };
         return (message) =>
             new Promise(resolve => {
