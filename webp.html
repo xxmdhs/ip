@@ -272,7 +272,7 @@
             return ffmpeg;
         }
         onmessage = async (message) => {
-            const [flag, d, fname] = message
+            const [flag, d, fname] = message.data
             const ffmpeg = await loadFfmpeg()
             ffmpeg.writeFile('1.gif', d)
             await ffmpeg.run(...flag);
@@ -290,7 +290,7 @@
         let pendingJob;
 
         worker.onmessage = (result) => {
-            pendingJob(result);
+            pendingJob(result.data);
             worker.terminate()
         };
         return (message) =>
