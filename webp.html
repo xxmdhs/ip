@@ -61,7 +61,7 @@
                 <button v-if="imgs.length" @click="alldownload">全部下载</button>
                 <button v-if="imgs.length" @click="clean">清空</button>
             </div>
-            <progress v-if="progress != 0" :value="progress" max="100"></progress>
+            <progress v-for="(progress,id) in progress" :key="id" :value="progress" max="100"></progress>
 
             <div class="imgs" v-if="imgs.length"
                 style="display: grid;grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));gap: 15px;align-items:center;padding-bottom: 20px;">
@@ -84,7 +84,8 @@
             const imgs = Vue.ref([]);
             const fps = Vue.ref('');
             const size = Vue.ref('');
-            const progress = Vue.ref(0);
+            const progress = Vue.ref({});
+            let progressID = 0
 
             async function doFile(file) {
                 errmsg.value = "";
@@ -184,23 +185,6 @@
                 })
             }
 
-            let affmpeg = null
-            async function loadFfmpeg() {
-                let affmpeg = null
-                if (affmpeg) {
-                    return affmpeg
-                }
-                const { createFFmpeg } = FFmpeg;
-                const ffmpeg = createFFmpeg({
-                    mainName: 'main',
-                    corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
-                });
-                await ffmpeg.load();
-                affmpeg = ffmpeg
-                ffmpeg.setLogging(true);
-                return ffmpeg;
-            }
-
             async function Gif2Webp(d, q) {
                 let quality = q * 100
                 let l = ['-quality', String(quality)]
@@ -245,6 +229,7 @@
                     URL.createObjectURL(new Blob([`importScripts('https://tool.xmdhs.com/static/ffmpeg.js');(${work.toString()})()`]))
                 );
                 let pendingJob;
+                const id = progressID++
 
                 worker.onmessage = ({ data }) => {
                     if (data.type == "r") {
@@ -255,10 +240,10 @@
                     if (data.type == "log") {
                         console.log(data.data.message)
                     }
-                    if (data.type == "progress"){
-                        progress.value = data.data.ratio * 100
-                        if (data.data.ratio == 1){
-                            progress.value = 0
+                    if (data.type == "progress") {
+                        progress.value[id] = data.data.ratio * 100
+                        if (data.data.ratio == 1) {
+                            delete progress.value[id]
                         }
                     }
                 };
