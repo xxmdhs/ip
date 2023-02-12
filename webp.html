@@ -198,7 +198,6 @@
                 ffmpeg.setLogging(true);
                 return ffmpeg;
             }
-            const ffmpeg = makeWorker(work);
 
             async function Gif2Webp(d, q) {
                 let quality = q * 100
@@ -217,6 +216,7 @@
                     l.push("-vf")
                     l.push(vf.join(","))
                 }
+                const ffmpeg = makeWorker();
                 const flag = ['-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp']
                 const r = await ffmpeg([flag, d, 'output.webp'])
                 return r
@@ -232,6 +232,7 @@
                     l.push("-vf")
                     l.push(vf.join(","))
                 }
+                const ffmpeg = makeWorker();
                 const flag = ['-i', '1.gif', ...l, "-plays", "0", 'output.apng']
                 const r = await ffmpeg([flag, d, 'output.apng'])
                 return r
@@ -270,37 +271,32 @@
             affmpeg = ffmpeg
             return ffmpeg;
         }
-        onmessage = async ({ data: { jobId, message } }) => {
-            const [flag, d, fname] = message[0]
+        onmessage = async (message) => {
+            const [flag, d, fname] = message
             const ffmpeg = await loadFfmpeg()
             ffmpeg.writeFile('1.gif', d)
             await ffmpeg.run(...flag);
             const r = ffmpeg.readFile(fname)
             ffmpeg.unlink('1.gif')
             ffmpeg.unlink(fname)
-            postMessage({ jobId, result: r });
+            postMessage(r);
         };
     }
 
-    function makeWorker(f) {
-        let pendingJobs = {};
-
+    function makeWorker() {
         const worker = new Worker(
-            URL.createObjectURL(new Blob([`importScripts('https://tool.xmdhs.com/static/ffmpeg.js');(${f.toString()})()`]))
+            URL.createObjectURL(new Blob([`importScripts('https://tool.xmdhs.com/static/ffmpeg.js');(${work.toString()})()`]))
         );
+        let pendingJob;
 
-        worker.onmessage = ({ data: { result, jobId } }) => {
-            // 调用resolve，改变Promise状态
-            pendingJobs[jobId](result);
-            // 删掉，防止key冲突
-            delete pendingJobs[jobId];
+        worker.onmessage = (result) => {
+            pendingJob(result);
+            worker.terminate()
         };
-
-        return (...message) =>
+        return (message) =>
             new Promise(resolve => {
-                const jobId = String(Math.random());
-                pendingJobs[jobId] = resolve;
-                worker.postMessage({ jobId, message });
+                pendingJob = resolve;
+                worker.postMessage(message);
             });
     };
 </script>
