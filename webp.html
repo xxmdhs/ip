@@ -103,7 +103,7 @@
                 const f = formateMap[selected.value]
                 if (f) {
                     let ib = null
-                    if (file.type.indexOf('png') !== -1 && file.type.indexOf('jpeg') !== -1) {
+                    if (file.type.indexOf('png') !== -1 || file.type.indexOf('jpeg') !== -1) {
                         const u = URL.createObjectURL(file)
                         ib = new Uint8Array(await (await conver('png', quality.value, u)).arrayBuffer());
                         URL.revokeObjectURL(u);
