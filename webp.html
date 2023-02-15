@@ -211,11 +211,12 @@
                     l.push("-vf")
                     l.push(vf.join(","))
                 }
+                l.push("-noautorotate")
                 return l
             }
 
             async function any2GIf(d) {
-                let l = []
+                let l = ["-noautorotate"]
                 let vf = [];
                 if (fps.value != "") {
                     vf.push("fps=fps=" + fps.value)
