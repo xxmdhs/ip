@@ -30,7 +30,7 @@
         </header>
         <main class="container">
             <input></input>
-            <pre>{{ pre }}</pre>
+            <pre v-for="(v, index) in dl" :key="index"> {{ v }} </pre>
         </main>
     </div>
 </body>
@@ -38,22 +38,29 @@
 <script type="text/javascript">
     Vue.createApp({
         setup(props, context) {
-            const pre = Vue.ref('');
-
-
+            const dl = Vue.ref([]);
             document.addEventListener('paste', async (event) => {
+                dl.value = []
                 console.log(event)
-                const l = []
                 const types = event.clipboardData && event.clipboardData.types;
                 for (const v of types) {
-                    const t = event.clipboardData.getData(v)
-                    l.push(t)
+                    if (v != "Files") {
+                        const t = event.clipboardData.getData(v)
+                        dl.value.push(t)
+                    }
                 }
-                pre.value = JSON.stringify(l, null, 4)
+                for (const f of event.clipboardData?.files) {
+                    dl.value.push(JSON.stringify({
+                        name: f.name,
+                        size: f.size,
+                        type: f.type,
+                        lastModified: f.lastModified
+                    }, null, 4))
+                }
             });
 
             return {
-                pre
+                dl
             }
         },
     }).mount('#app')
