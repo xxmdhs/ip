@@ -229,7 +229,7 @@
                     l.push(vf.join(","))
                 }
                 const ffmpeg = makeWorker();
-                const flag = ['-noautorotate', '-i', '1.gif', ...l, "-loop", "0", 'output.gif']
+                const flag = ['-i', '1.gif', ...l, "-loop", "0", 'output.gif']
                 const r = await ffmpeg([flag, d, 'output.gif'])
                 return r
             }
@@ -242,7 +242,7 @@
                 }
                 l = makeFlag(l)
                 const ffmpeg = makeWorker();
-                const flag = ['-noautorotate', '-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp']
+                const flag = ['-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp']
                 const r = await ffmpeg([flag, d, 'output.webp'])
                 return r
             }
@@ -252,7 +252,7 @@
                 let l = []
                 l = makeFlag(l)
                 const ffmpeg = makeWorker();
-                const flag = ['-noautorotate', '-i', '1.gif', ...l, "-plays", "0", 'output.apng']
+                const flag = ['-i', '1.gif', ...l, "-plays", "0", 'output.apng']
                 const r = await ffmpeg([flag, d, 'output.apng'])
                 return r
             }
