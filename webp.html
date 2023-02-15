@@ -47,16 +47,14 @@
                 质量 0-1，部分格式有效
                 <input type="number" v-model="quality">
             </label>
-            <div v-if="selected != 'png' && selected != 'jpeg'">
-                <label>
-                    帧率（对于动图）
-                    <input type="number" v-model="fps">
-                </label>
-                <label>
-                    分辨率（如 300:400，300:-1）
-                    <input v-model="size">
-                </label>
-            </div>
+            <label>
+                分辨率（如 300:400，300:-1）
+                <input v-model="size">
+            </label>
+            <label v-if="selected != 'png' && selected != 'jpeg'">
+                帧率（对于动图）
+                <input type="number" v-model="fps">
+            </label>
             <p v-if="errmsg" style="color: red;">{{ errmsg }}</p>
             <div style="display: grid;grid-template-columns: 8em 5em;column-gap: 10px;">
                 <button v-if="imgs.length" @click="alldownload">全部下载</button>
@@ -175,8 +173,19 @@
 
                 return new Promise((resolve, reject) => {
                     image.onload = () => {
-                        canvas.width = image.width;
-                        canvas.height = image.height;
+                        let [w, h] = [image.width, image.height]
+                        if (size.value != "") {
+                            [w, h] = size.value.split(":").map(v => Number(v))
+                            if (w == -1) {
+                                const s = image.height / h
+                                w = image.width / s
+                            } else if (h == -1) {
+                                const s = image.width / w
+                                h = image.height / s
+                            }
+                        }
+                        canvas.width = w;
+                        canvas.height = h;
                         if (f == "jpeg") {
                             ctx.fillStyle = '#ffffff';
                             ctx.fillRect(0, 0, canvas.width, canvas.height);
