@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粘贴板原始内容读取</title>
+    <link rel="stylesheet" href="static/pico.min.css">
+    <script src="static/vue.global.js"></script>
+    <style type="text/css">
+        header {
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+
+
+
+<body>
+    <div id="app">
+        <header>
+            <nav class="container-fluid">
+                <ul>
+                    <li><strong>粘贴板原始内容读取</strong></li>
+                </ul>
+                <ul>
+                </ul>
+            </nav>
+        </header>
+        <main class="container">
+            <input></input>
+            <pre>{{ pre }}</pre>
+        </main>
+    </div>
+</body>
+
+<script type="text/javascript">
+    Vue.createApp({
+        setup(props, context) {
+            const pre = Vue.ref('');
+
+
+            document.addEventListener('paste', async (event) => {
+                console.log(event)
+                const l = []
+                const types = event.clipboardData && event.clipboardData.types;
+                for (const v of types) {
+                    const t = event.clipboardData.getData(v)
+                    l.push(t)
+                }
+                pre.value = JSON.stringify(l, null, 4)
+            });
+
+            return {
+                pre
+            }
+        },
+    }).mount('#app')
+</script>
+
+</html>
