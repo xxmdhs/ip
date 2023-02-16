@@ -38,6 +38,7 @@
                 <input type="file" ref="file" accept="image/*,video/*" multiple>
                 <button @click="fileupload" style="width: 5em;">转换</button>
             </div>
+            <progress v-if="max != 0" :value="allprogres" :max="max"></progress>
             <select v-model="selected">
                 <option disabled value="">选择需要转换到的格式</option>
                 <option>jpeg</option>
@@ -87,6 +88,8 @@
             const fps = Vue.ref('');
             const size = Vue.ref('');
             const progress = Vue.ref({});
+            const allprogres = Vue.ref(0);
+            const max = Vue.ref(0);
             let progressID = 0
 
             const formateMap = {
@@ -140,10 +143,15 @@
                     errmsg.value = "请选择文件";
                     return;
                 }
+                if (f.files > 1) {
+                    max.value = f.files.length
+                    allprogres.value = 0
+                }
                 let l = []
                 for (const v of f.files) {
                     l.push(new Promise(async e => {
                         await doFile(v)
+                        allprogres.value += 1
                         e()
                     }))
                     if (l.length > 5) {
@@ -199,6 +207,8 @@
                     URL.revokeObjectURL(v.url);
                 }
                 imgs.value = []
+                max.value = 0
+                allprogres.value = 0
             }
 
             async function conver(f, q, url) {
@@ -334,7 +344,9 @@
                 clean,
                 progress,
                 fps,
-                size
+                size,
+                allprogres,
+                max
             }
         },
     }).mount('#app')
