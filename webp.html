@@ -46,6 +46,7 @@
                 <option>gif</option>
                 <option>apng</option>
                 <option>webp</option>
+                <option>avif</option>
             </select>
             <label>
                 质量 0-1，部分格式有效
@@ -77,7 +78,7 @@
     </div>
 </body>
 
-<script type="text/javascript">
+<script type="module">
     Vue.createApp({
         setup(props, context) {
             const errmsg = Vue.ref('');
@@ -93,6 +94,7 @@
             let progressID = 0
 
             const formateMap = {
+                "avif": any2Avif,
                 "webp": Gif2Webp,
                 "apng": (u, q) => any2Apng(u),
                 "gif": (u, q) => any2GIf(u)
@@ -303,6 +305,25 @@
                 return r
             }
 
+            async function loadImage(src) {
+                const img = document.createElement('img');
+                img.src = src;
+                await new Promise(resolve => img.onload = resolve);
+                const canvas = document.createElement('canvas');
+                [canvas.width, canvas.height] = [img.width, img.height];
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                return ctx.getImageData(0, 0, img.width, img.height);
+            }
+
+            async function any2Avif(d, q) {
+                const avif = avifWorker()
+                const u = URL.createObjectURL(new Blob([d]))
+                const img = await loadImage(u)
+                URL.revokeObjectURL(u)
+                return avif([img, q])
+            }
+
             function makeWorker() {
                 const worker = new Worker(
                     URL.createObjectURL(new Blob([`importScripts('https://tool.xmdhs.com/static/ffmpeg.js');(${work.toString()})()`]))
@@ -380,6 +401,22 @@
             ffmpeg.unlink(fname)
             postMessage({ type: "r", data: r });
         };
+    }
+
+    function avifWorker() {
+        const worker = new Worker("./avif/enc/avif_work.mjs", { type: "module" });
+        let pendingJob;
+
+        worker.onmessage = ({ data }) => {
+            pendingJob(data);
+            worker.terminate()
+            return
+        };
+        return (message) =>
+            new Promise(resolve => {
+                pendingJob = resolve;
+                worker.postMessage(message);
+            });
     }
 
 
