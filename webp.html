@@ -219,16 +219,9 @@
                     if (isSafari) {
                         return webpWasm
                     }
-                    return webpCanvas
+                    return null
                 }
                 return Gif2Webp
-            }
-
-            async function webpCanvas(d, q) {
-                const u = URL.createObjectURL(new Blob([d]))
-                const r = await conver("webp", q, u)
-                URL.revokeObjectURL(u)
-                return new Uint8Array(await r.arrayBuffer())
             }
 
             async function conver(f, q, url) {
