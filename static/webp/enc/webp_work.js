@@ -11,7 +11,7 @@ onmessage = async (message) => {
             target_PSNR: 0,
             method: 4,
             sns_strength: 50,
-            filter_strengqualityth: 60,
+            filter_strength: 60,
             filter_sharpness: 0,
             filter_type: 1,
             partitions: 0,
