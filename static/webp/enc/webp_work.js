@@ -27,7 +27,7 @@ onmessage = async (message) => {
             lossless: ((q) => {
                 if (q == 100) return 1
                 return 0
-            })(q),
+            })(quality),
             exact: 0,
             image_hint: 0,
             emulate_jpeg_size: 0,
