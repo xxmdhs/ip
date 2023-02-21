@@ -1,7 +1,7 @@
 // @ts-nocheck
 // FFMPEG class - which was former createFFmpeg in ffmpeg/ffmpeg
 // https://gist.github.com/Chris1234567899/a00afe5e2de1beb1cb4053cbbafc4fe8/
-export class FFmpeg {
+class FFmpeg {
     core = null;
     ffmpeg = null;
     runResolve = null;

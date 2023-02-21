@@ -344,7 +344,7 @@
             }
 
             function makeWorker() {
-                const worker = new Worker("./static/ffmpeg.worker.js", { type: "module" });
+                const worker = new Worker("./static/ffmpeg.worker.js");
                 let pendingJob;
                 const id = progressID++
 

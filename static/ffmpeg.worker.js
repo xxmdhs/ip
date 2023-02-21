@@ -1,5 +1,4 @@
-import FFmpeg from './ffmpeg.js'
-
+importScripts("./ffmpeg.js")
 async function loadFfmpeg() {
 
     const ffmpeg = new FFmpeg({
