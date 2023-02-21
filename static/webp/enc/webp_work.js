@@ -3,6 +3,7 @@ import webp_enc from './webp_enc.js'
 onmessage = async (message) => {
     try {
         const [image, q] = message.data
+        const quality = q * 100
         const webp = await webp_enc()
         const result = webp.encode(image.data, image.width, image.height, {
             quality: q,
@@ -10,7 +11,7 @@ onmessage = async (message) => {
             target_PSNR: 0,
             method: 4,
             sns_strength: 50,
-            filter_strength: 60,
+            filter_strengqualityth: 60,
             filter_sharpness: 0,
             filter_type: 1,
             partitions: 0,
