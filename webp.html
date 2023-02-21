@@ -56,7 +56,7 @@
                 分辨率（如 300:400，300:-1）
                 <input v-model="size">
             </label>
-            <label v-if="selected != 'png' && selected != 'jpeg'">
+            <label v-if="selected != 'png' && selected != 'jpeg' && selected != 'avif'">
                 帧率（对于动图）
                 <input type="number" v-model="fps">
             </label>
@@ -94,10 +94,10 @@
             let progressID = 0
 
             const formateMap = {
-                "avif": any2Avif,
-                "webp": Gif2Webp,
-                "apng": (u, q) => any2Apng(u),
-                "gif": (u, q) => any2GIf(u)
+                "avif": () => any2Avif,
+                "webp": webpSwitch,
+                "apng": () => (u, q) => any2Apng(u),
+                "gif": () => (u, q) => any2GIf(u)
             }
 
             async function doFile(file) {
@@ -108,10 +108,10 @@
                 }
                 let b = null;
 
-                const f = formateMap[selected.value]
+                const f = formateMap[selected.value] ? formateMap[selected.value](file.type) : null
                 if (f) {
                     let ib = null
-                    if (file.type.indexOf('png') !== -1 || file.type.indexOf('jpeg') !== -1 || file.type.indexOf('avif') !== -1) {
+                    if (file.type.includes('png') || file.type.includes('jpeg') || file.type.includes('avif')) {
                         const u = URL.createObjectURL(file)
                         ib = new Uint8Array(await (await conver('png', quality.value, u)).arrayBuffer());
                         URL.revokeObjectURL(u);
@@ -211,6 +211,24 @@
                 imgs.value = []
                 max.value = 0
                 allprogres.value = 0
+            }
+
+            function webpSwitch(t) {
+                const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+                if (t.includes('png') || t.includes('jpeg') || t.includes('avif')) {
+                    if (isSafari) {
+                        return webpWasm
+                    }
+                    return webpCanvas
+                }
+                return Gif2Webp
+            }
+
+            async function webpCanvas(d, q) {
+                const u = URL.createObjectURL(new Blob([d]))
+                const r = await conver("webp", q, u)
+                URL.revokeObjectURL(u)
+                return new Uint8Array(await r.arrayBuffer())
             }
 
             async function conver(f, q, url) {
@@ -324,10 +342,16 @@
                 return avif([img, q])
             }
 
+            async function webpWasm(d, q) {
+                const webp = webpWorker()
+                const u = URL.createObjectURL(new Blob([d]))
+                const img = await loadImage(u)
+                URL.revokeObjectURL(u)
+                return webp([img, q])
+            }
+
             function makeWorker() {
-                const worker = new Worker(
-                    URL.createObjectURL(new Blob([`importScripts('https://tool.xmdhs.com/static/ffmpeg.js');(${work.toString()})()`]))
-                );
+                const worker = new Worker("./static/ffmpeg.worker.js", { type: "module" });
                 let pendingJob;
                 const id = progressID++
 
@@ -372,39 +396,16 @@
         },
     }).mount('#app')
 
-    function work() {
-        let affmpeg = null
-        async function loadFfmpeg() {
-            let affmpeg = null
-            if (affmpeg) {
-                return affmpeg
-            };
-            const ffmpeg = new FFmpeg({
-                mainName: 'main',
-                corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
-                logger: e => {
-                    postMessage({ type: "log", data: e });
-                },
-                progress: e => postMessage({ type: "progress", data: e })
-            });
-            await ffmpeg.load();
-            affmpeg = ffmpeg
-            return ffmpeg;
-        }
-        onmessage = async (message) => {
-            const [flag, d, fname] = message.data
-            const ffmpeg = await loadFfmpeg()
-            ffmpeg.writeFile('1.gif', d)
-            await ffmpeg.run(...flag);
-            const r = ffmpeg.readFile(fname)
-            ffmpeg.unlink('1.gif')
-            ffmpeg.unlink(fname)
-            postMessage({ type: "r", data: r });
-        };
+    function avifWorker() {
+        return newWorker("./static/avif/enc/avif_work.mjs")
     }
 
-    function avifWorker() {
-        const worker = new Worker("./avif/enc/avif_work.mjs", { type: "module" });
+    function webpWorker() {
+        return newWorker("./static/webp/enc/webp_work.js")
+    }
+
+    function newWorker(url) {
+        const worker = new Worker(url, { type: "module" });
         let pendingJob;
 
         worker.onmessage = ({ data }) => {
@@ -418,7 +419,6 @@
                 worker.postMessage(message);
             });
     }
-
 
 </script>
 
