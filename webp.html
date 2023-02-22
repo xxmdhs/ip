@@ -250,10 +250,8 @@
                             ctx.fillRect(0, 0, canvas.width, canvas.height);
                         }
                         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-                        canvas.toBlob((b) => {
-                            resolve(b);
-                        }, `image/${f}`, q)
-
+                        const dataURL = canvas.toDataURL(`image/${f}`, q)
+                        fetch(dataURL).then(e => e.blob()).then(b => resolve(b))
                     }
                 })
             }
