@@ -139,18 +139,20 @@
                 })
             }
 
-            async function fileupload() {
-                const f = file.value;
-                if (f.files.length == 0) {
+            async function fileupload(fileList) {
+                if (file.value.files.length != 0) {
+                    fileList = file.value.files;
+                }
+                if (fileList == 0) {
                     errmsg.value = "请选择文件";
                     return;
                 }
-                if (f.files.length > 1) {
+                if (fileList.length > 1) {
                     max.value = f.files.length
                     allprogres.value = 0
                 }
                 let l = []
-                for (const v of f.files) {
+                for (const v of fileList) {
                     l.push(new Promise(async e => {
                         await doFile(v)
                         allprogres.value += 1
@@ -166,10 +168,7 @@
             document.addEventListener('paste', async (event) => {
                 const items = event.clipboardData && event.clipboardData.items;
                 const files = Array.from(items).filter(v => v.kind == "file").map(v => v.getAsFile())
-                const dT = new DataTransfer();
-                files.forEach(v => dT.items.add(v))
-                file.value.files = dT.files
-                await fileupload()
+                await fileupload(files)
             });
 
 
