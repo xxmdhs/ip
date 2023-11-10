@@ -53,7 +53,7 @@
                 <input type="number" v-model="quality">
             </label>
             <label>
-                分辨率（如 300:400，300:-1）
+                最大宽度 / 高度
                 <input v-model="size">
             </label>
             <label v-if="selected != 'png' && selected != 'jpeg' && selected != 'avif'">
@@ -233,13 +233,15 @@
                     image.onload = () => {
                         let [w, h] = [image.width, image.height]
                         if (size.value != "") {
-                            [w, h] = size.value.split(":").map(v => Number(v))
-                            if (w == -1) {
-                                const s = image.height / h
-                                w = image.width / s
-                            } else if (h == -1) {
-                                const s = image.width / w
-                                h = image.height / s
+                            const max = Number(size.value)
+                            if (w > max || h > max) {
+                                if (w > h) {
+                                    h = image.height / (image.width / max)
+                                    w = max
+                                } else {
+                                    h = max
+                                    w = image.width / (image.height / max)
+                                }
                             }
                         }
                         canvas.width = w;
@@ -259,7 +261,7 @@
             function makeFlag(l) {
                 let vf = [];
                 if (size.value != "") {
-                    vf.push("scale=" + size.value)
+                    vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})'`)
                 }
                 if (fps.value != "") {
                     vf.push("fps=fps=" + fps.value)
@@ -278,7 +280,7 @@
                     vf.push("fps=fps=" + fps.value)
                 }
                 if (size.value != "") {
-                    vf.push("scale=" + size.value + ":flags=lanczos")
+                    vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})'` + ":flags=lanczos")
                 }
                 vf.push("split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle:new=off")
                 if (vf.length != 0) {
