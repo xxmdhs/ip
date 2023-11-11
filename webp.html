@@ -70,8 +70,10 @@
             <div class="imgs" v-if="imgs.length"
                 style="display: grid;grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));gap: 15px;align-items:center;padding-bottom: 20px;">
                 <div v-for="(img, index) in imgs" :key="index">
-                    <img :src="img.url">
-                    <span>{{ img.size / 1000 / 1000 }}MB / {{ img.oldSize / 1000 / 1000 }}MB</span>
+                    <div v-if="img && img.url != ''">
+                        <img :src="img.url">
+                        <span>{{ img.size / 1000 / 1000 }}MB / {{ img.oldSize / 1000 / 1000 }}MB</span>
+                    </div>
                 </div>
             </div>
         </main>
@@ -100,7 +102,7 @@
                 "gif": () => (u, q) => any2GIf(u)
             }
 
-            async function doFile(file) {
+            async function doFile(file, index) {
                 errmsg.value = "";
                 if (selected.value == "") {
                     errmsg.value = "请选择转换格式";
@@ -130,13 +132,13 @@
                     URL.revokeObjectURL(u);
                 }
                 const uu = URL.createObjectURL(b)
-                imgs.value.unshift({
+                imgs.value[index] = {
                     name: file.name,
                     url: uu,
                     ext: selected.value,
                     size: b.size,
                     oldSize: file.size
-                })
+                }
             }
 
             async function fileupload(fileList) {
@@ -152,9 +154,9 @@
                     allprogres.value = 0
                 }
                 let l = []
-                for (const v of fileList) {
+                for (const [index, v] of Array.from(fileList).entries()) {
                     l.push(new Promise(async e => {
-                        await doFile(v)
+                        await doFile(v, index)
                         allprogres.value += 1
                         e()
                     }))
