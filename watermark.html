@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水印工具</title>
+    <link rel="stylesheet" href="https://static.xmdhs.com/pico.min.css">
+    <script src="https://static.xmdhs.com/vue.global.js"></script>
+    <style type="text/css">
+        header {
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+
+
+
+<body>
+    <div id="app">
+        <header>
+            <nav class="container-fluid">
+                <ul>
+                    <li><strong>水印工具</strong></li>
+                </ul>
+                <ul>
+                </ul>
+            </nav>
+        </header>
+        <main class="container">
+            <label>
+                水印文本
+                <input v-model="text">
+            </label>
+            <label>
+                大小（px）
+                <input v-model="px">
+            </label>
+            <label>
+                颜色
+                <input type="color" v-model="color">
+            </label>
+            <img v-if="img" :src="img" />
+        </main>
+    </div>
+</body>
+
+<script type="text/javascript">
+    Vue.createApp({
+        setup(props, context) {
+            const img = Vue.ref("")
+            const text = Vue.ref("")
+            const px = Vue.ref("20")
+            const color = Vue.ref("")
+
+            document.addEventListener('paste', async (event) => {
+                img.value && URL.revokeObjectURL(img.value);
+                const items = event.clipboardData && event.clipboardData.items;
+                const files = Array.from(items).filter(v => v.kind == "file").map(v => v.getAsFile())
+                const file = files[0]
+                if (!file) return
+                const b = await watermark(file, text.value, px.value, color.value)
+                const url = URL.createObjectURL(b)
+                img.value = url
+            });
+
+            async function watermark(f, text, px, color) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const image = new Image();
+                const url = URL.createObjectURL(f)
+                image.src = url;
+
+                return new Promise((resolve, reject) => {
+                    image.onload = () => {
+                        const [w, h] = [image.width, image.height]
+                        canvas.width = w;
+                        canvas.height = h;
+
+                        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                        URL.revokeObjectURL(url);
+
+                        ctx.font = `${px}px system-ui`;
+                        ctx.fillStyle = color
+                        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+                        canvas.toBlob((b) => {
+                            resolve(b);
+                        }, `image/png`)
+                    }
+                    image.onerror = e => {
+                        URL.revokeObjectURL(url);
+                        reject(e)
+                    }
+                })
+            }
+
+
+            return {
+                img,
+                text,
+                px,
+                color
+            }
+        },
+    }).mount('#app')
+
+
+</script>
+
+</html>
