@@ -63,6 +63,11 @@
                 const b = await watermark(file, text.value, px.value, color.value)
                 const url = URL.createObjectURL(b)
                 img.value = url
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        [b.type]: b
+                    })
+                ]);
             });
 
             async function watermark(f, text, px, color) {
