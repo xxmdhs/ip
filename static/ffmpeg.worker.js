@@ -3,7 +3,7 @@ async function loadFfmpeg() {
 
     const ffmpeg = new FFmpeg({
         mainName: 'main',
-        corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
+        corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
         logger: e => {
             postMessage({ type: "log", data: e });
         },
