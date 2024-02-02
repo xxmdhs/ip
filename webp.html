@@ -81,6 +81,9 @@
 </body>
 
 <script type="module">
+    import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm';
+    import { FFmpeg } from './static/ffmpeg/index.js';
+
     Vue.createApp({
         setup(props, context) {
             const errmsg = Vue.ref('');
@@ -93,7 +96,6 @@
             const progress = Vue.ref({});
             const allprogres = Vue.ref(0);
             const max = Vue.ref(0);
-            let progressID = 0
 
             const formateMap = {
                 "avif": () => any2Avif,
@@ -289,7 +291,7 @@
                     l.push("-vf")
                     l.push(vf.join(","))
                 }
-                const ffmpeg = makeWorker();
+                const ffmpeg = makeFFmpeg();
                 const flag = ['-i', '1.gif', ...l, "-loop", "0", 'output.gif']
                 const r = await ffmpeg([flag, d, 'output.gif'])
                 return r
@@ -302,7 +304,7 @@
                     l = ['-lossless', "1"]
                 }
                 l = makeFlag(l)
-                const ffmpeg = makeWorker();
+                const ffmpeg = makeFFmpeg();
                 const flag = ['-i', '1.gif', ...l, "-loop", "0", "-c:v", "libwebp", 'output.webp']
                 const r = await ffmpeg([flag, d, 'output.webp'])
                 return r
@@ -312,7 +314,7 @@
                 let vf = [];
                 let l = []
                 l = makeFlag(l)
-                const ffmpeg = makeWorker();
+                const ffmpeg = makeFFmpeg();
                 const flag = ['-i', '1.gif', ...l, "-plays", "0", 'output.apng']
                 const r = await ffmpeg([flag, d, 'output.apng'])
                 return r
@@ -345,32 +347,33 @@
                 return webp([img, q])
             }
 
-            function makeWorker() {
-                const worker = new Worker("./static/ffmpeg.worker.js");
-                let pendingJob;
-                const id = progressID++
 
-                worker.onmessage = ({ data }) => {
-                    if (data.type == "r") {
-                        pendingJob(data.data);
-                        worker.terminate()
-                        return
-                    }
-                    if (data.type == "log") {
-                        console.log(data.data.message)
-                    }
-                    if (data.type == "progress") {
-                        progress.value[id] = data.data.ratio * 100
-                        if (data.data.ratio == 1) {
+            function makeFFmpeg() {
+                let id = 0
+                id++
+
+                return async (message) => {
+                    const [flag, d, fname] = message
+                    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm'
+                    const ffmpeg = new FFmpeg()
+                    ffmpeg.on('progress', ({ ratio, time }) => {
+                        if (!ratio) return
+                        progress.value[id] = ratio * 100
+                        if (ratio == 1 || !ratio) {
                             delete progress.value[id]
                         }
-                    }
-                };
-                return (message) =>
-                    new Promise(resolve => {
-                        pendingJob = resolve;
-                        worker.postMessage(message);
                     });
+                    ffmpeg.on('log', ({ message }) => {
+                        console.log(message);
+                    });
+                    await ffmpeg.load({
+                        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                    });
+                    await ffmpeg.writeFile('1.gif', d)
+                    await ffmpeg.exec(flag);
+                    return await ffmpeg.readFile(fname);
+                }
             };
 
             return {
