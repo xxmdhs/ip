@@ -72,7 +72,8 @@
                 <div v-for="(img, index) in imgs" :key="index">
                     <div v-if="img && img.url != ''">
                         <img :src="img.url">
-                        <span>{{ img.size / 1000 / 1000 }}MB / {{ img.oldSize / 1000 / 1000 }}MB</span>
+                        <span>{{ (img.size / 1000 / 1000).toFixed(2) }}MB / {{ (img.oldSize / 1000 / 1000).toFixed(2) }}MB ({{ ((100 - img.size /
+                            img.oldSize * 100) * -1).toFixed(2) }}%)</span>
                     </div>
                 </div>
             </div>
@@ -156,9 +157,10 @@
                     allprogres.value = 0
                 }
                 let l = []
+                const imgLen = imgs.value.length
                 for (const [index, v] of Array.from(fileList).entries()) {
                     l.push(new Promise(async e => {
-                        await doFile(v, index)
+                        await doFile(v, index + imgLen)
                         allprogres.value += 1
                         e()
                     }))
@@ -357,10 +359,10 @@
                     const [flag, d, fname] = message
                     const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm'
                     const ffmpeg = new FFmpeg()
-                    ffmpeg.on('progress', ({ ratio, time }) => {
-                        if (!ratio) return
-                        progress.value[id] = ratio * 100
-                        if (ratio == 1 || !ratio) {
+                    ffmpeg.on('progress', (p) => {
+                        if (!p.progress) return
+                        progress.value[id] = p.progress * 100
+                        if (p.progress == 1 || !p.progress) {
                             delete progress.value[id]
                         }
                     });
