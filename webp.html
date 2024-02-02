@@ -372,7 +372,9 @@
                     });
                     await ffmpeg.writeFile('1.gif', d)
                     await ffmpeg.exec(flag);
-                    return await ffmpeg.readFile(fname);
+                    const data = await ffmpeg.readFile(fname);
+                    ffmpeg.terminate()
+                    return data
                 }
             };
 
