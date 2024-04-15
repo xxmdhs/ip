@@ -35,7 +35,7 @@
         </header>
         <main class="container">
             <div style="display: grid;grid-template-columns: 15em 5em;column-gap: 10px;">
-                <input type="file" ref="file" accept="image/*,video/*" multiple>
+                <input type="file" ref="file" accept="image/*,video/*,*/*" multiple>
                 <button @click="fileupload" style="width: 5em;">转换</button>
             </div>
             <progress v-if="max != 0" :value="allprogres" :max="max"></progress>
