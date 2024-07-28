@@ -120,7 +120,7 @@
                 const f = formateMap[selected.value] ? formateMap[selected.value](file.type) : null
                 if (f) {
                     b = await f(new Uint8Array(await file.arrayBuffer()), quality.value)
-                    if (!b instanceof Blob) {
+                    if (!(b instanceof Blob)) {
                         b = new Blob([b], { type: 'image/' + selected.value })
                     }
                 } else {
