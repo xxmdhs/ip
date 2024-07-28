@@ -119,7 +119,15 @@
 
                 const f = formateMap[selected.value] ? formateMap[selected.value](file.type) : null
                 if (f) {
-                    b = await f(new Uint8Array(await file.arrayBuffer()), quality.value)
+                    let ib = null
+                    if (file.type.includes('png') || file.type.includes('jpeg') || file.type.includes('avif')) {
+                        const u = URL.createObjectURL(file)
+                        ib = new Uint8Array(await (await conver('png', quality.value, u)).arrayBuffer());
+                        URL.revokeObjectURL(u);
+                    } else {
+                        ib = new Uint8Array(await file.arrayBuffer())
+                    }
+                    b = await f(ib, quality.value)
                     if (!(b instanceof Blob)) {
                         b = new Blob([b], { type: 'image/' + selected.value })
                     }
