@@ -324,14 +324,12 @@
             async function any2Avif(d, q) {
                 const avif = avifWorker()
                 const img = await toImageData(d)
-                URL.revokeObjectURL(u)
                 return avif([img, q])
             }
 
             async function webpWasm(d, q) {
                 const webp = webpWorker()
                 const img = await toImageData(d)
-                URL.revokeObjectURL(u)
                 return webp([img, q])
             }
 
