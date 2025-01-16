@@ -105,7 +105,7 @@
                 id.value = id.value + 1
                 try {
                     ip.value = await getip(ip.value)
-                    const u = new URL("https://auto.xmdhs.com:37981/ip/" + ip.value)
+                    const u = new URL("https://geo.xmdhs.com/ip/" + ip.value)
                     u.searchParams.set("type", geo.value)
                     const r = await fetch(u.toString())
                     const result = await r.json()
