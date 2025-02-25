@@ -37,7 +37,7 @@ async function jpegLiencode(imageData, q) {
         standardQuantTables
     } = {
         quality: q * 100,
-        progressiveLevel: 1,
+        progressiveLevel: 2,
         DTCMethod: 0,
         adaptiveQuantization: 1,
         fancyDownsampling: 1,
