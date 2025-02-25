@@ -102,7 +102,7 @@
             const max = Vue.ref(0);
 
             const formateMap = {
-                "avif": () => any2Avif,
+                "avif": () => avifEncode,
                 "webp": webpSwitch,
                 "apng": () => (u, q) => any2Apng(u),
                 "gif": () => (u, q) => any2GIf(u),
@@ -329,12 +329,6 @@
                 return r
             }
 
-            async function any2Avif(d, q) {
-                const avif = avifWorker()
-                const img = await toImageData(d)
-                return avif([img, q])
-            }
-
             async function webpWasm(d, q) {
                 const webp = webpWorker()
                 const img = await toImageData(d)
@@ -345,6 +339,12 @@
                 const jpegli = jpegliWorker()
                 const img = await toImageData(d)
                 return jpegli([img, q])
+            }
+
+            async function avifEncode(d, q) {
+                const avif = avifNewWorker()
+                const img = await toImageData(d)
+                return avif([img, q])
             }
 
             function makeFFmpeg() {
@@ -398,16 +398,16 @@
         },
     }).mount('#app')
 
-    function avifWorker() {
-        return newWorker("./static/avif/enc/avif_work.mjs")
-    }
-
     function webpWorker() {
         return newWorker("./static/webp/enc/webp_work.js")
     }
 
     function jpegliWorker() {
         return newWorker("./static/jpegli/jpegli.mjs")
+    }
+
+    function avifNewWorker() {
+        return newWorker("./static/avifnew/avif.mjs")
     }
 
 
