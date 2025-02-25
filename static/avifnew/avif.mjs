@@ -29,7 +29,7 @@ async function avifEncode(imageData, q) {
     const { data: pixelData, width, height } = imageData;
     const { quality, speed, chroma } = {
         quality: q * 100,
-        speed: 6,
+        speed: 10,
         chroma: 3
     };
     const pixelDataPtr = malloc(pixelData.length);
