@@ -27,17 +27,42 @@ async function jpegLiencode(imageData, q) {
     const memoryBuffer = inst.exports.memory;
     const { malloc: malloc, encode: encode, free: free } = inst.exports;
     const { data: pixelData, width, height } = imageData;
-    const { quality, progressiveLevel, DTCMethod, adaptiveQuantization, fancyDownsampling } = {
+    const {
+        quality,
+        progressiveLevel,
+        DTCMethod,
+        adaptiveQuantization,
+        fancyDownsampling,
+        optimizeCoding,
+        standardQuantTables
+    } = {
         quality: q * 100,
-        progressiveLevel: 1,
+        progressiveLevel: 0,
         DTCMethod: 0,
         adaptiveQuantization: 1,
-        fancyDownsampling: 1,
+        fancyDownsampling: 0,
+        optimizeCoding: 1,
+        standardQuantTables: 0
     };
+
     const pixelDataPtr = malloc(pixelData.length);
     new Uint8Array(memoryBuffer.buffer).set(pixelData, pixelDataPtr);
     const encodedSizePtr = malloc(8);
-    const encodedDataPtr = encode(pixelDataPtr, width, height, 2, 2, encodedSizePtr, quality, progressiveLevel, adaptiveQuantization, fancyDownsampling, DTCMethod);
+    const encodedDataPtr = encode(
+        pixelDataPtr,
+        width,
+        height,
+        2,                       // colorspace
+        2,                       // chroma
+        encodedSizePtr,
+        quality,
+        progressiveLevel,
+        optimizeCoding,
+        adaptiveQuantization,
+        standardQuantTables,
+        fancyDownsampling,
+        DTCMethod
+    );
     const encodedSizeArray = new Uint32Array(memoryBuffer.buffer.slice(encodedSizePtr, encodedSizePtr + 8));
     const encodedImageData = new Uint8Array(memoryBuffer.buffer.slice(encodedDataPtr, encodedDataPtr + encodedSizeArray[0]));
     free(pixelDataPtr);
