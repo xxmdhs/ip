@@ -40,7 +40,7 @@ async function jpegLiencode(imageData, q) {
         progressiveLevel: 0,
         DTCMethod: 0,
         adaptiveQuantization: 1,
-        fancyDownsampling: 0,
+        fancyDownsampling: 1,
         optimizeCoding: 1,
         standardQuantTables: 0
     };
