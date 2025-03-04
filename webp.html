@@ -353,9 +353,9 @@
 
                 return async (message) => {
                     const [flag, d, fname] = message
-                    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm'
+                    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.13.1/dist/esm'
                     const { FFmpeg } = await import('./static/ffmpeg/index.js')
-                    const { toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm')
+                    const { toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.2/dist/esm')
 
                     const ffmpeg = new FFmpeg()
                     ffmpeg.on('progress', (p) => {
