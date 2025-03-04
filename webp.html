@@ -278,6 +278,8 @@
                 }
                 if (fps.value != "") {
                     vf.push("fps=fps=" + fps.value)
+                } else {
+                    l.push(...["-fps_mode", " passthrough"])
                 }
                 if (vf.length != 0) {
                     l.push("-vf")
@@ -291,6 +293,8 @@
                 let vf = [];
                 if (fps.value != "") {
                     vf.push("fps=fps=" + fps.value)
+                } else {
+                    l.push(...["-fps_mode", " passthrough"])
                 }
                 if (size.value != "") {
                     vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})'` + ":flags=lanczos")
