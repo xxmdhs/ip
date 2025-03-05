@@ -263,6 +263,7 @@
                             ctx.fillStyle = '#ffffff';
                             ctx.fillRect(0, 0, canvas.width, canvas.height);
                         }
+                        ctx.imageSmoothingQuality = 'high'
                         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
                         canvas.toBlob((b) => {
                             resolve(b);
