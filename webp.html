@@ -59,7 +59,7 @@
             </label>
             <label>
                 最大宽度 / 高度
-                <input v-model="size">
+                <input v-model="size" placeholder="1080">
             </label>
             <label v-if="selected != 'png' && selected != 'jpeg' && selected != 'avif' && selected != 'jpegli'">
                 帧率（对于动图）
@@ -227,6 +227,9 @@
 
             function webpSwitch(t) {
                 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+                if (quality.value === 1){
+                    return Gif2Webp
+                }
                 if (t.includes('png') || t.includes('jpeg') || t.includes('avif')) {
                     if (isSafari) {
                         return webpWasm
