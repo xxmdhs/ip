@@ -130,9 +130,7 @@
                         errmsg.value = "请选择图片文件";
                         return;
                     }
-                    const u = URL.createObjectURL(file)
-                    b = await conver(selected.value, quality.value, u);
-                    URL.revokeObjectURL(u);
+                    b = await conver(selected.value, quality.value, new Uint8Array(await file.arrayBuffer()));
                 }
                 const uu = URL.createObjectURL(b)
                 imgs.value[index] = {
@@ -227,42 +225,36 @@
                 if (isSafari) {
                     return Gif2Webp
                 }
+                if (t.includes('webp') || t.includes('gif')) {
+                    return Gif2Webp
+                }
                 return null
             }
 
-            async function conver(f, q, url) {
-                let canvas = document.createElement('canvas');
-                let ctx = canvas.getContext('2d');
-                let image = new Image();
-                image.src = url;
-
-                return new Promise((resolve, reject) => {
-                    image.onload = () => {
-                        let [w, h] = [image.width, image.height]
-                        if (size.value != "") {
-                            const max = Number(size.value)
-                            if (w > max || h > max) {
-                                if (w > h) {
-                                    h = image.height / (image.width / max)
-                                    w = max
-                                } else {
-                                    h = max
-                                    w = image.width / (image.height / max)
-                                }
-                            }
-                        }
-                        canvas.width = w;
-                        canvas.height = h;
-                        if (f == "jpeg") {
-                            ctx.fillStyle = '#ffffff';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        }
-                        ctx.imageSmoothingQuality = 'high'
-                        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-                        canvas.toBlob((b) => {
-                            resolve(b);
-                        }, `image/${f}`, q)
+            async function conver(f, q, uint8Array) {
+                const blob = new Blob([uint8Array]);
+                const imgBitmap = await createImageBitmap(blob)
+                let [w, h] = [imgBitmap.width, imgBitmap.height]
+                if (size.value) {
+                    const max = Number(size.value);
+                    if (width > max || height > max) {
+                        const scale = max / Math.max(width, height);
+                        width = Math.round(width * scale);
+                        height = Math.round(height * scale);
                     }
+                }
+                const canvas = new OffscreenCanvas(w, h);
+                const ctx = canvas.getContext('2d');
+                if (f === "jpeg") {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                ctx.imageSmoothingQuality = 'high'
+
+                ctx.drawImage(imgBitmap, 0, 0);
+                return canvas.convertToBlob({
+                    type: `image/${f}`,
+                    quality: q,
                 })
             }
 
@@ -419,28 +411,23 @@
     function toImageData(uint8Array, f = "") {
         return new Promise((resolve, reject) => {
             const blob = new Blob([uint8Array]);
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
+
+            createImageBitmap(blob).then(imgBitmap => {
+                const canvas = new OffscreenCanvas(imgBitmap.width, imgBitmap.height);
                 const ctx = canvas.getContext('2d');
-                if (f == "jpeg") {
+
+                if (f === "jpeg") {
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
-                ctx.drawImage(img, 0, 0);
-                const imageData = ctx.getImageData(0, 0, img.width, img.height);
-                URL.revokeObjectURL(img.src)
+
+                ctx.drawImage(imgBitmap, 0, 0);
+                const imageData = ctx.getImageData(0, 0, imgBitmap.width, imgBitmap.height);
                 resolve(imageData);
-            };
-            img.onerror = () => {
-                URL.revokeObjectURL(img.src)
-                reject()
-            };
-            img.src = URL.createObjectURL(blob);
+            }).catch(reject);
         });
     }
+
 
 </script>
 
