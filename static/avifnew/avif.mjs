@@ -1,4 +1,5 @@
 import { WASI, File, OpenFile, ConsoleStdout } from "https://unpkg.com/@bjorn3/browser_wasi_shim";
+import { toImageData } from "../utils.mjs";
 
 
 async function loadWasm() {
@@ -48,7 +49,8 @@ async function avifEncode(imageData, q) {
 onmessage = async (message) => {
     try {
         const [image, q] = message.data
-        const result = await avifEncode(image, q)
+        const d = await toImageData(image)
+        const result = await avifEncode(d, q)
         postMessage(result)
     } catch (e) {
         console.warn(e)

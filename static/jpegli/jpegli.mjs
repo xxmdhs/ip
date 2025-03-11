@@ -1,4 +1,5 @@
 import { WASI, File, OpenFile, ConsoleStdout } from "https://unpkg.com/@bjorn3/browser_wasi_shim";
+import { toImageData } from "../utils.mjs";
 
 
 async function loadWasm() {
@@ -75,7 +76,8 @@ async function jpegLiencode(imageData, q) {
 onmessage = async (message) => {
     try {
         const [image, q] = message.data
-        const result = await jpegLiencode(image, q)
+        const d = await toImageData(image, "jpeg")
+        const result = await jpegLiencode(d, q)
         postMessage(result)
     } catch (e) {
         console.warn(e)
