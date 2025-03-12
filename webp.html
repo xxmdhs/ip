@@ -156,13 +156,14 @@
                 }
                 let l = []
                 const imgLen = imgs.value.length
+                const processors = navigator.hardwareConcurrency ?? 1
                 for (const [index, v] of Array.from(fileList).entries()) {
                     l.push(new Promise(async e => {
                         await doFile(v, index + imgLen)
                         allprogres.value += 1
                         e()
                     }))
-                    if (l.length > 5) {
+                    if (l.length > processors) {
                         await Promise.all(l)
                         l = []
                     }
