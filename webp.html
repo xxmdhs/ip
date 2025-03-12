@@ -109,7 +109,12 @@
                 "jpegli": () => jpegLiEncode,
             }
 
-            async function doFile(file, index) {
+            /** 
+             * @param {File} file 
+             * @param {number} index 
+             * @param {WorkerPool} pool
+             */
+            async function doFile(file, index, pool) {
                 errmsg.value = "";
                 if (selected.value == "") {
                     errmsg.value = "请选择转换格式";
@@ -121,7 +126,7 @@
                 if (f) {
                     let ib = null
                     ib = new Uint8Array(await file.arrayBuffer())
-                    b = await f(ib, quality.value)
+                    b = await f({ d: ib, q: quality.value, pool })
                     if (!(b instanceof Blob)) {
                         b = new Blob([b], { type: 'image/' + selected.value })
                     }
@@ -142,6 +147,7 @@
                 }
             }
 
+
             async function fileupload(fileList) {
                 if (file.value.files.length != 0) {
                     fileList = file.value.files;
@@ -157,9 +163,15 @@
                 let l = []
                 const imgLen = imgs.value.length
                 const processors = navigator.hardwareConcurrency ?? 1
+                const u = workerUrlMap[selected.value]
+                /** @type {WorkerPool | null} */
+                let pool = null
+                if (u) {
+                    pool = new WorkerPool(u, Math.min(processors, fileList.length))
+                }
                 for (const [index, v] of Array.from(fileList).entries()) {
                     l.push(new Promise(async e => {
-                        await doFile(v, index + imgLen)
+                        await doFile(v, index + imgLen, pool)
                         allprogres.value += 1
                         e()
                     }))
@@ -169,6 +181,7 @@
                     }
                 }
                 await Promise.all(l)
+                pool?.terminateAll()
             }
 
             document.addEventListener('paste', async (event) => {
@@ -261,7 +274,7 @@
                 return l
             }
 
-            async function any2GIf(d) {
+            async function any2GIf({ d }) {
                 let l = []
                 let vf = [];
                 if (fps.value != "") {
@@ -283,7 +296,7 @@
                 return r
             }
 
-            async function Gif2Webp(d, q) {
+            async function Gif2Webp({ d, q }) {
                 let quality = q * 100
                 let l = ['-quality', String(quality)]
                 if (quality == 100) {
@@ -296,7 +309,7 @@
                 return r
             }
 
-            async function any2Apng(d) {
+            async function any2Apng({ d }) {
                 let vf = [];
                 let l = []
                 l = makeFlag(l)
@@ -306,14 +319,12 @@
                 return r
             }
 
-            async function jpegLiEncode(d, q) {
-                const jpegli = jpegliWorker()
-                return jpegli([d, q, size.value])
+            async function jpegLiEncode({ d, q, pool }) {
+                return pool.runTask([d, q, size.value])
             }
 
-            async function avifEncode(d, q) {
-                const avif = avifNewWorker()
-                return avif([d, q, size.value])
+            async function avifEncode({ d, q, pool }) {
+                return pool.runTask([d, q, size.value])
             }
 
             function makeFFmpeg() {
@@ -373,6 +384,74 @@
 
     function avifNewWorker() {
         return newWorker("./static/avifnew/avif.mjs")
+    }
+
+    const workerUrlMap = {
+        "jpegli": "./static/jpegli/jpegli.mjs",
+        "avif": "./static/avifnew/avif.mjs"
+    }
+
+    class WorkerPool {
+        #workerUrl
+        #poolSize
+        #availableWorkers
+        #taskQueue
+        constructor(workerUrl, poolSize = navigator.hardwareConcurrency || 1) {
+            this.#workerUrl = workerUrl;
+            this.#poolSize = poolSize;
+            this.#availableWorkers = [];
+            this.#taskQueue = [];
+
+            for (let i = 0; i < poolSize; i++) {
+                const worker = new Worker(workerUrl, { type: 'module' });
+                worker.currentTask = null;
+                worker.onmessage = ({ data }) => {
+                    if (worker.currentTask) {
+                        worker.currentTask.resolve(data);
+                        worker.currentTask = null;
+                    }
+                    this.#releaseWorker(worker);
+                };
+
+                worker.onerror = (error) => {
+                    if (worker.currentTask) {
+                        worker.currentTask.reject(error);
+                        worker.currentTask = null;
+                    }
+                    this.#releaseWorker(worker);
+                };
+
+                this.#availableWorkers.push(worker);
+            }
+        }
+
+        #releaseWorker(worker) {
+            if (this.#taskQueue.length > 0) {
+                const { message, resolve, reject } = this.#taskQueue.shift();
+                worker.currentTask = { resolve, reject };
+                worker.postMessage(message);
+            } else {
+                this.#availableWorkers.push(worker);
+            }
+        }
+
+        runTask(message) {
+            return new Promise((resolve, reject) => {
+                if (this.#availableWorkers.length > 0) {
+                    const worker = this.#availableWorkers.shift();
+                    worker.currentTask = { resolve, reject };
+                    worker.postMessage(message);
+                } else {
+                    this.#taskQueue.push({ message, resolve, reject });
+                }
+            });
+        }
+
+        terminateAll() {
+            this.#availableWorkers.forEach(worker => worker.terminate());
+            this.#availableWorkers = [];
+            this.#taskQueue = []
+        }
     }
 
 
