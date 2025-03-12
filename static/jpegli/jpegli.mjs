@@ -75,8 +75,8 @@ async function jpegLiencode(imageData, q) {
 
 onmessage = async (message) => {
     try {
-        const [image, q] = message.data
-        const d = await toImageData(image, "jpeg")
+        const [image, q, size] = message.data
+        const d = await toImageData(image, "jpeg", size ?? 0)
         const result = await jpegLiencode(d, q)
         postMessage(result)
     } catch (e) {

@@ -59,7 +59,7 @@
             </label>
             <label>
                 最大宽度 / 高度
-                <input v-model="size" placeholder="1080">
+                <input v-model="size" placeholder="1280">
             </label>
             <label v-if="selected != 'png' && selected != 'jpeg' && selected != 'avif' && selected != 'jpegli'">
                 帧率（对于动图）
@@ -232,26 +232,11 @@
             }
 
             async function conver(f, q, uint8Array) {
-                const blob = new Blob([uint8Array]);
-                const imgBitmap = await createImageBitmap(blob)
-                let [w, h] = [imgBitmap.width, imgBitmap.height]
-                if (size.value) {
-                    const max = Number(size.value);
-                    if (width > max || height > max) {
-                        const scale = max / Math.max(width, height);
-                        width = Math.round(width * scale);
-                        height = Math.round(height * scale);
-                    }
-                }
-                const canvas = new OffscreenCanvas(w, h);
+                const { toImageData } = await import('./static/utils.mjs')
+                const imageData = await toImageData(uint8Array, f, size.value ?? 0)
+                const canvas = new OffscreenCanvas(imageData.width, imageData.height);
                 const ctx = canvas.getContext('2d');
-                if (f === "jpeg") {
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                }
-                ctx.imageSmoothingQuality = 'high'
-
-                ctx.drawImage(imgBitmap, 0, 0);
+                ctx.putImageData(imageData, 0, 0);
                 return canvas.convertToBlob({
                     type: `image/${f}`,
                     quality: q,
@@ -322,12 +307,12 @@
 
             async function jpegLiEncode(d, q) {
                 const jpegli = jpegliWorker()
-                return jpegli([d, q])
+                return jpegli([d, q, size.value])
             }
 
             async function avifEncode(d, q) {
                 const avif = avifNewWorker()
-                return avif([d, q])
+                return avif([d, q, size.value])
             }
 
             function makeFFmpeg() {

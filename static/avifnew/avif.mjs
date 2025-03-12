@@ -48,8 +48,8 @@ async function avifEncode(imageData, q) {
 
 onmessage = async (message) => {
     try {
-        const [image, q] = message.data
-        const d = await toImageData(image)
+        const [image, q, size] = message.data
+        const d = await toImageData(image, "", size ?? 0)
         const result = await avifEncode(d, q)
         postMessage(result)
     } catch (e) {
