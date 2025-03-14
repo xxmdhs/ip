@@ -260,7 +260,7 @@
             function makeFlag(l) {
                 let vf = [];
                 if (size.value != "") {
-                    vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})'`)
+                    vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})':flags=lanczos`)
                 }
                 if (fps.value != "") {
                     vf.push("fps=fps=" + fps.value)
@@ -283,7 +283,7 @@
                     l.push(...["-fps_mode", "passthrough"])
                 }
                 if (size.value != "") {
-                    vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})'`)
+                    vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})':flags=lanczos`)
                 }
                 vf.push("split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=floyd_steinberg")
                 if (vf.length != 0) {
