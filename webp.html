@@ -126,7 +126,7 @@
                 if (f) {
                     let ib = null
                     ib = new Uint8Array(await file.arrayBuffer())
-                    b = await f({ d: ib, q: quality.value, pool })
+                    b = await f({ d: ib, q: quality.value, pool, type: file.type })
                     if (!(b instanceof Blob)) {
                         b = new Blob([b], { type: 'image/' + selected.value })
                     }
@@ -274,7 +274,7 @@
                 return l
             }
 
-            async function any2GIf({ d }) {
+            async function any2GIf({ d, type }) {
                 let l = []
                 let vf = [];
                 if (fps.value != "") {
@@ -285,7 +285,11 @@
                 if (size.value != "") {
                     vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})':flags=lanczos`)
                 }
-                vf.push("split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=floyd_steinberg:diff_mode=rectangle:new=off")
+                if (type.includes('webp') || type.includes('gif')) {
+                    vf.push("split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=floyd_steinberg:diff_mode=rectangle:new=off")
+                } else {
+                    vf.push("split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=off:stats_mode=full[pal];[split2][pal]paletteuse=dither=floyd_steinberg:diff_mode=rectangle:new=off")
+                }
                 if (vf.length != 0) {
                     l.push("-vf")
                     l.push(vf.join(","))
