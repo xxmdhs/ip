@@ -1,4 +1,4 @@
-import { WASI, File, OpenFile, ConsoleStdout } from "https://unpkg.com/@bjorn3/browser_wasi_shim";
+import { WASI, File, OpenFile, ConsoleStdout } from "../wasi/index.js";
 import { toImageData } from "../utils.mjs";
 
 
