@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+  <meta charset="UTF-8">
+  <title>URL 参数解析器</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      font-size: 14px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #copyBtn {
+      margin-left: 10px;
+    }
+
+    pre {
+      margin-top: 20px;
+      background: #f9f9f9;
+      padding: 10px;
+      border: 1px solid #ccc;
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+
+    #ok {
+      opacity: 0;
+      transition: opacity 1s;
+    }
+
+    #ok.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>URL 参数解析器</h2>
+  <label for="queryInput">请输入 URL 参数字符串：</label>
+  <textarea id="queryInput" placeholder="a=...&b=..."></textarea>
+  <br>
+  <div style="display: flex;align-items: baseline;column-gap: 1em;">
+    <button onclick="parseAndDisplay()">解析参数并复制</button>
+    <p style="color: green;" id="ok">OK</p>
+  </div>
+  <pre id="output"></pre>
+
+  <script>
+    function parseQueryParams(queryString) {
+      const params = new URLSearchParams(queryString);
+      const decodedParams = {};
+      for (const [key, value] of params.entries()) {
+        decodedParams[key] = decodeURIComponent(value);
+      }
+      return decodedParams;
+    }
+
+    function formatParams(params) {
+      let output = "";
+      for (const key in params) {
+        output += `${key}: ${params[key]}\n`;
+      }
+      return output;
+    }
+
+    function parseAndDisplay() {
+      const input = document.getElementById("queryInput").value.trim();
+      const outputElement = document.getElementById("output");
+
+      if (!input) {
+        outputElement.textContent = "请输入参数字符串。";
+        return;
+      }
+
+      try {
+        const params = parseQueryParams(input);
+        const formatted = formatParams(params);
+        outputElement.textContent = formatted;
+      } catch (e) {
+        outputElement.textContent = "解析失败，请检查输入格式是否正确。";
+      }
+      copyToClipboard()
+    }
+
+    function copyToClipboard() {
+      const text = document.getElementById("output").textContent;
+      if (!text) {
+        alert("没有可复制的内容！");
+        return;
+      }
+
+      navigator.clipboard.writeText(text).then(() => {
+        const okElem = document.getElementById("ok");
+        okElem.classList.add("show");
+        setTimeout(() => {
+          okElem.classList.remove("show");
+        }, 2000);
+      }).catch(err => {
+        alert("复制失败：" + err);
+      });
+    }
+  </script>
+</body>
+
+</html>
