@@ -178,7 +178,7 @@
                 const messageIsInClear = buf2hex(event.message).includes(clearTLV);
 
                 // 如果是明文请求，解析 Client ID
-                if (messageIsInClear) {
+                if (messageIsInClear || event.messageType == 'license-renewal') {
                     const clientIdBase64 = btoa(
                         String.fromCharCode(...new Uint8Array(event.message))
                     );
