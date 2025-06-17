@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <title>URL 参数解析器</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: auto;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            font-size: 14px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #copyBtn {
+            margin-left: 10px;
+        }
+
+        pre {
+            margin-top: 20px;
+            background: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #ccc;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+
+        #ok {
+            opacity: 0;
+            transition: opacity 1s;
+        }
+
+        #ok.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <textarea id="queryInput"></textarea>
+
+    <script>
+        async function extractWidevineDeviceInfo() {
+            // 辅助函数
+            const fromHexString = hexString =>
+                Uint8Array.from(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+
+            const buf2hex = buffer =>
+                [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, '0')).join('');
+
+            // 解析 Client ID 的核心函数
+            function parseClientId(clientIdBase64) {
+                const rawClientId = new Uint8Array(
+                    atob(clientIdBase64)
+                        .split('')
+                        .map(c => c.charCodeAt(0))
+                );
+
+                // 查找序列号
+                const findSerialNumber = data => {
+                    const tag = [0x08, 0x02, 0x12];
+                    for (let i = 0; i < data.length - tag.length; i++) {
+                        if (data[i] === tag[0] && data[i + 1] === tag[1] && data[i + 2] === tag[2]) {
+                            const length = data[i + 3];
+                            const start = i + 4;
+                            return Array.from(data.slice(start, start + length))
+                                .map(b => b.toString(16).padStart(2, '0'))
+                                .join('');
+                        }
+                    }
+                    throw new Error("No Serial Number tag, Client ID might be encrypted.");
+                };
+
+                // 查找 TLV 值
+                const findTLV = (data, tagName) => {
+                    const encoder = new TextEncoder();
+                    const tagBytes = encoder.encode(tagName);
+
+                    for (let i = 0; i < data.length - tagBytes.length; i++) {
+                        let match = true;
+                        for (let j = 0; j < tagBytes.length; j++) {
+                            if (data[i + j] !== tagBytes[j]) {
+                                match = false;
+                                break;
+                            }
+                        }
+
+                        if (match) {
+                            const length = data[i + tagBytes.length];
+                            const start = i + tagBytes.length + 1;
+                            return new TextDecoder().decode(
+                                data.slice(start, start + length)
+                            );
+                        }
+                    }
+                    return '';
+                };
+
+                // 属性映射表
+                const attributes = {
+                    "Application Name": "application_name",
+                    "Package Cert Hash": "package_certificate_hash_bytes",
+                    "Company Name": "company_name",
+                    "Model Name": "model_name",
+                    "Architecture Name": "architecture_name",
+                    "Device Name": "device_name",
+                    "Product Name": "product_name",
+                    "Build Info": "build_info",
+                    "Widevine CDM Version": "widevine_cdm_version",
+                    "OEM Crypto Build Info": "oem_crypto_build_information",
+                    "OEM Crypto SPL": "oem_crypto_security_patch_level"
+                };
+
+                try {
+                    const serialNumber = findSerialNumber(rawClientId);
+                    const deviceInfo = Object.entries(attributes)
+                        .map(([attrName, tag]) => {
+                            const value = findTLV(rawClientId, tag);
+                            return value ? `\t${attrName}: ${value}` : null;
+                        })
+                        .filter(Boolean)
+                        .join('\n');
+
+                    return {
+                        serialNumber,
+                        deviceInfo: `Client Info:\n${deviceInfo}`
+                    };
+                } catch (e) {
+                    return { error: e.message };
+                }
+            }
+
+            // 配置 Widevine 参数
+            const config = [{
+                initDataTypes: ['cenc'],
+                sessionTypes: ['persistent-license'],
+                videoCapabilities: [{
+                    contentType: 'video/mp4; codecs="avc1.640029"'
+                }],
+                audioCapabilities: [{
+                    contentType: 'audio/mp4; codecs="mp4a.40.2"'
+                }]
+            }];
+
+            // 创建 MediaKeys
+            async function createMediaKeys(keySystemAccess) {
+                try {
+                    const mediaKeys = await keySystemAccess.createMediaKeys();
+                    return mediaKeys;
+                } catch (error) {
+                    console.error("Unable to create MediaKeys:", error);
+                    // 回退到临时许可证
+                    config[0].sessionTypes = ['temporary'];
+                    const fallbackAccess = await navigator.requestMediaKeySystemAccess('com.widevine.alpha', config);
+                    return await fallbackAccess.createMediaKeys();
+                }
+            }
+
+            async function handleMessage(event) {
+                const keySession = event.target;
+
+                // 检查是否需要服务证书
+                if (event.message.byteLength === 2) {
+                    const serverCert = fromHexString('080512C7050AC102080312101705B917CC1204868B06333A2F772A8C1882B4829205228E023082010A028201010099ED5B3B327DAB5E24EFC3B62A95B598520AD5BCCB37503E0645B814D876B8DF40510441AD8CE3ADB11BB88C4E725A5E4A9E0795291D58584023A7E1AF0E38A91279393008610B6F158C878C7E21BFFBFEEA77E1019E1E5781E8A45F46263D14E60E8058A8607ADCE04FAC8457B137A8D67CCDEB33705D983A21FB4EECBD4A10CA47490CA47EAA5D438218DDBAF1CADE3392F13D6FFB6442FD31E1BF40B0C604D1C4BA4C9520A4BF97EEBD60929AFCEEF55BBAF564E2D0E76CD7C55C73A082B996120B8359EDCE24707082680D6F67C6D82C4AC5F3134490A74EEC37AF4B2F010C59E82843E2582F0B6B9F5DB0FC5E6EDF64FBD308B4711BCF1250019C9F5A0902030100013A146C6963656E73652E7769646576696E652E636F6D128003AE347314B5A835297F271388FB7BB8CB5277D249823CDDD1DA30B93339511EB3CCBDEA04B944B927C121346EFDBDEAC9D413917E6EC176A10438460A503BC1952B9BA4E4CE0FC4BFC20A9808AAAF4BFCD19C1DCFCDF574CCAC28D1B410416CF9DE8804301CBDB334CAFCD0D40978423A642E54613DF0AFCF96CA4A9249D855E42B3A703EF1767F6A9BD36D6BF82BE76BBF0CBA4FDE59D2ABCC76FEB64247B85C431FBCA52266B619FC36979543FCA9CBBDBBFAFA0E1A55E755A3C7BCE655F9646F582AB9CF70AA08B979F867F63A0B2B7FDB362C5BC4ECD555D85BCAA9C593C383C857D49DAAB77E40B7851DDFD24998808E35B258E75D78EAC0CA16F7047304C20D93EDE4E8FF1C6F17E6243E3F3DA8FC1709870EC45FBA823A263F0CEFA1F7093B1909928326333705043A29BDA6F9B4342CC8DF543CB1A1182F7C5FFF33F10490FACA5B25360B76015E9C5A06AB8EE02F00D2E8D5986104AACC4DD475FD96EE9CE4E326F21B83C7058577B38732CDDABC6A6BED13FB0D49D38A45EB87A5F4');
+                    await keySession.update(serverCert);
+                    return;
+                }
+
+                // 检查是否是明文请求
+                const clearTLV = '0203010001'; // RSA 密钥的 TLV
+                const messageIsInClear = buf2hex(event.message).includes(clearTLV);
+
+                // 如果是明文请求，解析 Client ID
+                if (messageIsInClear) {
+                    const clientIdBase64 = btoa(
+                        String.fromCharCode(...new Uint8Array(event.message))
+                    );
+
+                    const result = parseClientId(clientIdBase64);
+                    if (result.error) {
+                        console.error("解析错误:", result.error);
+                    } else {
+                        console.log("------ Widevine 设备信息 ------");
+                        console.log(`证书序列号: ${result.serialNumber}`);
+                        console.log(result.deviceInfo);
+                        document.querySelector("#queryInput").textContent = `证书序列号: ${result.serialNumber}\n` + result.deviceInfo
+
+                        keySession.close()
+                        return
+                    }
+                }
+
+                // 发送到许可证服务器
+                try {
+                    const response = await fetch('https://proxy.staging.widevine.com/proxy?policy=CAEQARgBKAAwADgFSAFQBWAB', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/data' },
+                        body: event.message
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const buffer = await response.arrayBuffer();
+                    await keySession.update(new Uint8Array(buffer));
+                } catch (error) {
+                    console.error("许可证请求失败:", error);
+                }
+            }
+
+            // 主执行流程
+            try {
+                const keySystemAccess = await navigator.requestMediaKeySystemAccess('com.widevine.alpha', config);
+                const mediaKeys = await createMediaKeys(keySystemAccess);
+
+                const keySession = mediaKeys.createSession(config[0].sessionTypes);
+                if (!keySession) throw new Error("无法创建媒体会话");
+
+                console.log(`创建媒体会话，类型: ${config[0].sessionTypes}`);
+                keySession.addEventListener("message", handleMessage);
+
+                const initData = fromHexString('000000447073736800000000edef8ba979d64acea3c827dcd51d21ed0000002408011201311a0d7769646576696e655f74657374220a323031355f74656172732a025344');
+                await keySession.generateRequest("cenc", initData);
+
+                return { status: "success", message: "Widevine 初始化完成" };
+            } catch (error) {
+                console.error("初始化错误:", error);
+                return { status: "error", message: error.message };
+            }
+        }
+
+        // 使用示例
+        extractWidevineDeviceInfo()
+            .then(result => console.log(result))
+            .catch(error => console.error("执行失败:", error));
+    </script>
+</body>
+
+</html>
