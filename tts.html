@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本转语音 (TTS) 播放器</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 25px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            text-align: center;
+            color: #1a73e8;
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            line-height: 1.5;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+            align-items: center;
+        }
+        .controls label {
+            font-weight: 500;
+        }
+        .controls select {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+        .slider-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 12px;
+            width: 100%;
+        }
+        .slider-control label {
+            flex-basis: 50px;
+        }
+        .slider-control input[type="range"] {
+            flex-grow: 1;
+            margin: 0;
+        }
+        .slider-control span {
+            flex-basis: 35px;
+            text-align: right;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            width: 100%;
+        }
+        button {
+            flex-grow: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            color: #fff;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #speak-btn { background-color: #1a73e8; }
+        #pause-btn { background-color: #ff9800; }
+        #resume-btn { background-color: #4caf50; }
+        #stop-btn { background-color: #f44336; }
+        
+        .info {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>文本转语音播放器</h1>
+    <p class="info">输入文本，调整语速和音调，然后点击“播放”。</p>
+    
+    <textarea id="text-input" placeholder="请在此处输入要转换为语音的文本...">这是一个示例文本。你可以编辑我，或者粘贴任何你想要朗读的内容。在播放的时候，试着点击文本中间的某个位置，看看会发生什么。</textarea>
+    
+    <div class="controls">
+        <label for="voice-select">选择声音:</label>
+        <select id="voice-select"></select>
+    </div>
+
+    <div class="slider-control">
+        <label for="rate">语速:</label>
+        <input type="range" id="rate" min="0.5" max="2" value="1" step="0.1">
+        <span id="rate-value">1.0</span>
+    </div>
+    <div class="slider-control">
+        <label for="pitch">音调:</label>
+        <input type="range" id="pitch" min="0" max="2" value="1" step="0.1">
+        <span id="pitch-value">1.0</span>
+    </div>
+
+    <div class="buttons">
+        <button id="speak-btn">播放</button>
+        <button id="pause-btn" disabled>暂停</button>
+        <button id="resume-btn" disabled>恢复</button>
+        <button id="stop-btn" disabled>停止</button>
+    </div>
+</div>
+
+<script>
+    const textInput = document.getElementById('text-input');
+    const voiceSelect = document.getElementById('voice-select');
+    const speakBtn = document.getElementById('speak-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const resumeBtn = document.getElementById('resume-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const rateSlider = document.getElementById('rate');
+    const pitchSlider = document.getElementById('pitch');
+    const rateValue = document.getElementById('rate-value');
+    const pitchValue = document.getElementById('pitch-value');
+
+    let voices = [];
+    let currentUtterance = null;
+    let currentCharIndex = 0; // 跟踪当前播放的字符位置
+
+    function handleSliderChange(slider, valueDisplay) {
+        valueDisplay.textContent = parseFloat(slider.value).toFixed(1);
+        if (speechSynthesis.speaking && !speechSynthesis.paused) {
+            speakFromCurrentPosition();
+        }
+    }
+
+    rateSlider.addEventListener('input', () => handleSliderChange(rateSlider, rateValue));
+    pitchSlider.addEventListener('input', () => handleSliderChange(pitchSlider, pitchValue));
+
+    function populateVoiceList() {
+        voices = speechSynthesis.getVoices();
+        const currentSelection = voiceSelect.value;
+        voiceSelect.innerHTML = '';
+        voices.forEach(voice => {
+            if (voice.lang.includes('zh') || voice.lang.includes('en')) {
+                const option = document.createElement('option');
+                option.textContent = `${voice.name} (${voice.lang})`;
+                option.value = voice.name;
+                option.setAttribute('data-name', voice.name);
+                voiceSelect.appendChild(option);
+            }
+        });
+        voiceSelect.value = currentSelection;
+        if (!voiceSelect.value && voiceSelect.options.length > 0) {
+            voiceSelect.selectedIndex = 0;
+        }
+    }
+
+    populateVoiceList();
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = populateVoiceList;
+    }
+
+    function updateButtonState(isSpeaking, isPaused) {
+        speakBtn.disabled = isSpeaking && !isPaused;
+        pauseBtn.disabled = !isSpeaking || isPaused;
+        resumeBtn.disabled = !isSpeaking || !isPaused;
+        stopBtn.disabled = !isSpeaking;
+    }
+
+    function speak(startFrom = -1) {
+        if (speechSynthesis.speaking) {
+            speechSynthesis.cancel();
+        }
+
+        const text = textInput.value;
+        if (text.trim() === '') return;
+
+        const startPos = (startFrom >= 0) ? startFrom : (textInput.selectionStart || 0);
+        const textToSpeak = text.substring(startPos);
+
+        if (textToSpeak.trim() === '') {
+            updateButtonState(false, false);
+            return;
+        }
+
+        currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
+        
+        const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
+        const selectedVoice = voices.find(voice => voice.name === selectedVoiceName);
+        
+        if (selectedVoice) {
+            currentUtterance.voice = selectedVoice;
+        }
+
+        currentUtterance.rate = parseFloat(rateSlider.value);
+        currentUtterance.pitch = parseFloat(pitchSlider.value);
+
+        currentUtterance.onboundary = (event) => {
+            // event.charIndex 是相对于本次朗读文本的索引
+            currentCharIndex = startPos + event.charIndex;
+        };
+
+        currentUtterance.onstart = () => updateButtonState(true, false);
+        currentUtterance.onpause = () => updateButtonState(true, true);
+        currentUtterance.onresume = () => updateButtonState(true, false);
+        currentUtterance.onend = () => {
+            updateButtonState(false, false);
+            currentUtterance = null;
+            currentCharIndex = 0;
+        };
+        currentUtterance.onerror = (event) => {
+            console.error('语音合成发生错误:', event.error);
+            updateButtonState(false, false);
+            currentUtterance = null;
+            currentCharIndex = 0;
+        };
+
+        speechSynthesis.speak(currentUtterance);
+    }
+    
+    function speakFromCurrentPosition() {
+        speak(currentCharIndex);
+    }
+
+    speakBtn.addEventListener('click', () => speak());
+    pauseBtn.addEventListener('click', () => speechSynthesis.pause());
+    resumeBtn.addEventListener('click', () => speechSynthesis.resume());
+    stopBtn.addEventListener('click', () => {
+        currentCharIndex = 0;
+        speechSynthesis.cancel();
+    });
+
+    textInput.addEventListener('click', () => {
+        if (speechSynthesis.speaking && !speechSynthesis.paused) {
+            speak();
+        }
+    });
+    
+    updateButtonState(false, false);
+
+</script>
+
+</body>
+</html>
