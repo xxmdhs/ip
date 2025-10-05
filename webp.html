@@ -55,17 +55,14 @@
             </select>
             <div v-if="selected == 'gif'">
                 <label>
-                    最大颜色数量 (1-256)
-                    <input type="number" v-model.number="gifMaxColors" min="1" max="256">
+                    最大颜色数量 ({{ gifMaxColors }})
+                    <input type="range" v-model.number="gifMaxColors" min="1" max="256">
                 </label>
                 <label>
                     Dither 算法
                     <select v-model="gifDither">
                         <option>floyd_steinberg</option>
                         <option>bayer</option>
-                        <option>heckbert</option>
-                        <option>sierra2</option>
-                        <option>sierra2_4a</option>
                         <option>none</option>
                     </select>
                 </label>
