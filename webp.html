@@ -53,10 +53,27 @@
                 <option>webp</option>
                 <option>avif</option>
             </select>
-            <label v-if="selected == 'gif'">
-                <input type="checkbox" v-model="gifLowQuality">
-                低质量
-            </label>
+            <div v-if="selected == 'gif'">
+                <label>
+                    最大颜色数量 (1-256)
+                    <input type="number" v-model.number="gifMaxColors" min="1" max="256">
+                </label>
+                <label>
+                    Dither 算法
+                    <select v-model="gifDither">
+                        <option>floyd_steinberg</option>
+                        <option>bayer</option>
+                        <option>heckbert</option>
+                        <option>sierra2</option>
+                        <option>sierra2_4a</option>
+                        <option>none</option>
+                    </select>
+                </label>
+                <label v-if="gifDither == 'bayer'">
+                    Bayer Scale (0-5)
+                    <input type="number" v-model.number="gifBayerScale" min="0" max="5">
+                </label>
+            </div>
             <label>
                 质量 0-1，部分格式有效
                 <input type="number" v-model="quality">
@@ -104,7 +121,9 @@
             const progress = Vue.ref({});
             const allprogres = Vue.ref(0);
             const max = Vue.ref(0);
-            const gifLowQuality = Vue.ref(false);
+            const gifDither = Vue.ref('floyd_steinberg');
+            const gifBayerScale = Vue.ref(4);
+            const gifMaxColors = Vue.ref(256);
 
             const formateMap = {
                 "avif": () => avifEncode,
@@ -290,11 +309,14 @@
                 if (size.value != "") {
                     vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})':flags=lanczos`)
                 }
-                const dither = gifLowQuality.value ? 'bayer:bayer_scale=4' : 'floyd_steinberg'
+                let dither = gifDither.value
+                if (dither == 'bayer') {
+                    dither += `:bayer_scale=${gifBayerScale.value}`
+                }
                 if (type.includes('webp') || type.includes('gif')) {
-                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
+                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=${gifMaxColors.value}:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
                 } else {
-                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=off:stats_mode=full[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
+                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=${gifMaxColors.value}:reserve_transparent=off:stats_mode=full[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
                 }
                 if (vf.length != 0) {
                     l.push("-vf")
@@ -384,7 +406,9 @@
                 size,
                 allprogres,
                 max,
-                gifLowQuality
+                gifDither,
+                gifBayerScale,
+                gifMaxColors,
             }
         },
     }).mount('#app')
