@@ -311,9 +311,9 @@
                     dither += `:bayer_scale=${gifBayerScale.value}`
                 }
                 if (type.includes('webp') || type.includes('gif')) {
-                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=${gifMaxColors.value}:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
+                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=${gifMaxColors.value}:reserve_transparent=on:stats_mode=diff[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
                 } else {
-                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=${gifMaxColors.value}:reserve_transparent=off:stats_mode=full[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
+                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=${gifMaxColors.value}:reserve_transparent=off:stats_mode=diff[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
                 }
                 if (vf.length != 0) {
                     l.push("-vf")
