@@ -53,6 +53,10 @@
                 <option>webp</option>
                 <option>avif</option>
             </select>
+            <label v-if="selected == 'gif'">
+                <input type="checkbox" v-model="gifLowQuality">
+                低质量
+            </label>
             <label>
                 质量 0-1，部分格式有效
                 <input type="number" v-model="quality">
@@ -100,6 +104,7 @@
             const progress = Vue.ref({});
             const allprogres = Vue.ref(0);
             const max = Vue.ref(0);
+            const gifLowQuality = Vue.ref(false);
 
             const formateMap = {
                 "avif": () => avifEncode,
@@ -285,10 +290,11 @@
                 if (size.value != "") {
                     vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})':flags=lanczos`)
                 }
+                const dither = gifLowQuality.value ? 'bayer' : 'floyd_steinberg'
                 if (type.includes('webp') || type.includes('gif')) {
-                    vf.push("split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=floyd_steinberg:diff_mode=rectangle:new=off")
+                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
                 } else {
-                    vf.push("split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=off:stats_mode=full[pal];[split2][pal]paletteuse=dither=floyd_steinberg:diff_mode=rectangle:new=off")
+                    vf.push(`split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=off:stats_mode=full[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
                 }
                 if (vf.length != 0) {
                     l.push("-vf")
@@ -377,7 +383,8 @@
                 fps,
                 size,
                 allprogres,
-                max
+                max,
+                gifLowQuality
             }
         },
     }).mount('#app')
