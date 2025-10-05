@@ -67,8 +67,8 @@
                     </select>
                 </label>
                 <label v-if="gifDither == 'bayer'">
-                    Bayer Scale (0-5)
-                    <input type="number" v-model.number="gifBayerScale" min="0" max="5">
+                    Bayer Scale ({{ gifBayerScale }})
+                    <input type="range" v-model.number="gifBayerScale" min="0" max="5">
                 </label>
             </div>
             <label v-if="selected != 'gif' && selected != 'png'  && selected != 'apng'">
