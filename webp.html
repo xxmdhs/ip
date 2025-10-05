@@ -74,7 +74,7 @@
                     <input type="number" v-model.number="gifBayerScale" min="0" max="5">
                 </label>
             </div>
-            <label>
+            <label v-if="selected != 'gif' && selected != 'png' selected != 'apng'">
                 质量 0-1，部分格式有效
                 <input type="number" v-model="quality">
             </label>
