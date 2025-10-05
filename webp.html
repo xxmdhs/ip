@@ -290,7 +290,7 @@
                 if (size.value != "") {
                     vf.push(`scale='if(gt(a,1),${size.value},-1)':'if(gt(a,1),-1,${size.value})':flags=lanczos`)
                 }
-                const dither = gifLowQuality.value ? 'bayer' : 'floyd_steinberg'
+                const dither = gifLowQuality.value ? 'bayer:bayer_scale=4' : 'floyd_steinberg'
                 if (type.includes('webp') || type.includes('gif')) {
                     vf.push(`split[split1][split2];[split1]palettegen=max_colors=256:reserve_transparent=on:stats_mode=full[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off`)
                 } else {
