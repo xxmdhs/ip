@@ -15,7 +15,7 @@
         <div class="container-lg px-3 my-5 markdown-body">
             <h1>ip 地址查询</h1>
             <form id="getip" @submit.prevent="submit" style="display: flex;column-gap: 2px;flex-wrap:wrap;">
-                <input type="search" id="ip" placeholder="1.1.1.1" name="ip" v-model.trim="ip">
+                <textarea id="ip" placeholder="1.1.1.1&#10;8.8.8.8" name="ip" v-model.trim="ip" @click="$event.target.select()" style="flex: 1 1 100%; margin-bottom: 2px;"></textarea>
                 <input type="submit" value="查询">
                 <select v-model="geo">
                     <option value="bil">bilibili</option>
@@ -102,22 +102,22 @@
             }
 
 
-            async function submit() {
+            async function query(rawip) {
                 id.value = id.value + 1
+                let ipForQuery = rawip;
                 try {
-                    let rawip = ip.value;
                     const ipv4like = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/.exec(rawip);
                     if (ipv4like) {
-                        ip.value = ipv4like[0];
+                        ipForQuery = ipv4like[0];
                     } else {
-                        const ipv6like = /\[?([0-9a-fA-F]*:[0-9a-fA-F:]*)\]?/.exec(rawip);
+                        const ipv6like = /[\[]?([0-9a-fA-F]*:[0-9a-fA-F:]*)[\]]?/.exec(rawip);
                         if (ipv6like && ipv6like[1]) {
-                            ip.value = ipv6like[1];
+                            ipForQuery = ipv6like[1];
                         }
                     }
 
-                    ip.value = await getip(ip.value)
-                    const u = new URL("https://geo.xmdhs.com/ip/" + ip.value)
+                    ipForQuery = await getip(ipForQuery)
+                    const u = new URL("https://geo.xmdhs.com/ip/" + ipForQuery)
                     u.searchParams.set("type", geo.value)
                     const r = await fetch(u.toString())
                     const result = await r.json()
@@ -126,7 +126,7 @@
                     }
                     result.type = geo.value
                     const ipInfo = {
-                        ip: ip.value,
+                        ip: ipForQuery,
                         result: result,
                         id: id.value,
                         spam: Vue.ref(""),
@@ -134,51 +134,76 @@
                     }
                     resultList.value.unshift(ipInfo)
 
-                    if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip.value)) {
-                        return;
+                    const isIpV4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ipForQuery);
+                    const isIpV6 = ipForQuery.includes(':');
+
+                    if (isIpV4) {
+                        const iplreverse = ipForQuery.split(".").reverse().join(".");
+                        (async () => {
+                            const domain = iplreverse + ".zen.spamhaus.org."
+                            const r = await fetch(`https://dns.alidns.com/resolve?name=${domain}&type=A`, {
+                                headers: { 'accept': 'application/dns-json' }
+                            });
+                            if (r.status != 200) {
+                                console.warn(r);
+                                return;
+                            }
+                            const rj = await r.json();
+                            let spam = {};
+                            rj.Answer?.forEach(r => {
+                                if (r.type == 1 && r.name.toLowerCase() === domain.toLowerCase()) {
+                                    spam[spamCode(r.data)] = true;
+                                }
+                            });
+                            const spams = Object.keys(spam).join(" ");
+                            ipInfo.spam.value = spams;
+                        })();
                     }
 
-                    const iplreverse = ip.value.split(".").reverse().join(".")
-                    const domain = iplreverse + ".zen.spamhaus.org."
-                    const rr = await fetch(`https://dns.alidns.com/resolve?name=${domain}&type=1`)
-                    const rrj = await rr.json()
-                    if (rr.status != 200) {
-                        console.warn(rr)
-                        return
-                    }
-                    let spam = {}
-                    rrj.Answer?.forEach(r => {
-                        if (r.type == 1 && r.name == domain) {
-                            spam[spamCode(r.data)] = true
+                    (async () => {
+                        let reverseDomain;
+                        if (isIpV4) {
+                            reverseDomain = ipForQuery.split(".").reverse().join(".") + ".in-addr.arpa";
+                        } else {
+                            return;
                         }
-                    })
-                    const spams = Object.keys(spam).join(" ")
-                    ipInfo.spam.value = spams
 
-                    const pr = await fetch(`https://1.1.1.1/dns-query?name=${iplreverse}.in-addr.arpa&type=PTR`, {
-                        "headers": {
-                            "accept": "application/dns-json"
+                        const pr = await fetch(`https://1.1.1.1/dns-query?name=${reverseDomain}&type=PTR`, {
+                            "headers": {
+                                "accept": "application/dns-json"
+                            }
+                        });
+                        if (pr.status != 200) {
+                            console.warn(pr);
+                            return;
                         }
-                    })
-                    const pj = await pr.json()
-                    if (pr.status != 200) {
-                        console.warn(pr)
-                        return
-                    }
-                    let hostname = ""
-                    if (pj.Answer && pj.Answer.length != 0) {
-                        hostname = pj.Answer[0].data
-                        hostname = hostname.substr(0, hostname.length - 1)
-                    }
-                    ipInfo.hostname.value = hostname
+                        const pj = await pr.json();
+                        let hostname = "";
+                        if (pj.Answer && pj.Answer.length != 0) {
+                            hostname = pj.Answer[0].data;
+                            hostname = hostname.substr(0, hostname.length - 1);
+                        }
+                        ipInfo.hostname.value = hostname;
+                    })();
+
                 } catch (e) {
                     resultList.value.unshift({
-                        ip: ip.value,
+                        ip: rawip,
                         result: { isp: e },
                         id: id.value
                     })
                     console.warn(e)
                     return
+                }
+            }
+
+            const ipReg = /\b(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))\b|\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g
+
+            async function submit() {
+                const matches = ip.value.match(ipReg);
+                const uniqueIps = [...new Set(matches)];
+                for (const v of uniqueIps){
+                    await query(v)
                 }
             }
 
