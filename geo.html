@@ -15,7 +15,8 @@
         <div class="container-lg px-3 my-5 markdown-body">
             <h1>ip 地址查询</h1>
             <form id="getip" @submit.prevent="submit" style="display: flex;column-gap: 2px;flex-wrap:wrap;">
-                <textarea id="ip" placeholder="1.1.1.1&#10;8.8.8.8" name="ip" v-model.trim="ip" @click="$event.target.select()" style="flex: 1 1 100%; margin-bottom: 2px;"></textarea>
+                <textarea id="ip" placeholder="1.1.1.1&#10;8.8.8.8" name="ip" v-model.trim="ip"
+                    @click="$event.target.select()" style="flex: 1 1 100%; margin-bottom: 2px;"></textarea>
                 <input type="submit" value="查询">
                 <select v-model="geo">
                     <option value="bil">bilibili</option>
@@ -88,7 +89,7 @@
                 const isIpV4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip);
                 const isIpV6 = ip.includes(':');
                 if (isIpV4 || isIpV6) {
-                    return ip;
+                    return { ip, isIpV4 };
                 }
                 const rr = await fetch(`https://dns.alidns.com/resolve?name=${ip}&type=1`)
                 const rrj = await rr.json()
@@ -98,15 +99,14 @@
                 if (rrj.Answer && rrj.Answer.length != 0) {
                     return rrj.Answer[0].data
                 }
-                return ip
+                return { ip: ip, isIpV4: true }
             }
 
 
             async function query(rawip) {
                 id.value = id.value + 1
-                let ipForQuery = rawip;
                 try {
-                    ipForQuery = await getip(ipForQuery)
+                    let { ip: ipForQuery, isIpV4: isIpV4 } = await getip(rawip)
                     const u = new URL("https://geo.xmdhs.com/ip/" + ipForQuery)
                     u.searchParams.set("type", geo.value)
                     const r = await fetch(u.toString())
@@ -125,7 +125,7 @@
                     resultList.value.unshift(ipInfo)
 
 
-                    if (ipv4like) {
+                    if (isIpV4) {
                         const iplreverse = ipForQuery.split(".").reverse().join(".");
                         (async () => {
                             const domain = iplreverse + ".zen.spamhaus.org."
@@ -190,7 +190,7 @@
             async function submit() {
                 const matches = ip.value.match(ipReg);
                 const uniqueIps = [...new Set(matches.map(v => v.trim()))];
-                for (const v of uniqueIps){
+                for (const v of uniqueIps) {
                     await query(v)
                 }
             }
