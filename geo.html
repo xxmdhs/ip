@@ -189,8 +189,7 @@
 
             async function submit() {
                 const matches = ip.value.match(ipReg);
-                matches = matches.map(v => v.trim())
-                const uniqueIps = [...new Set(matches)];
+                const uniqueIps = [...new Set(matches.map(v => v.trim()))];
                 for (const v of uniqueIps){
                     await query(v)
                 }
