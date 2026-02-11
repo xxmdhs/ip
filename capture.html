@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rec</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #f5f5f7;
+            --card: rgba(255,255,255,.72);
+            --card-solid: #fff;
+            --border: rgba(0,0,0,.06);
+            --text-1: #1d1d1f;
+            --text-2: #6e6e73;
+            --text-3: #aeaeb2;
+            --blue: #0071e3;
+            --blue-hover: #0077ED;
+            --red: #ff3b30;
+            --red-bg: rgba(255,59,48,.08);
+            --green: #34c759;
+            --fill: rgba(120,120,128,.12);
+            --fill-hover: rgba(120,120,128,.18);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            background: var(--bg);
+            color: var(--text-1);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ---- top nav ---- */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            background: rgba(245,245,247,.7);
+            border-bottom: .5px solid var(--border);
+        }
+
+        .nav-inner {
+            max-width: 980px;
+            margin: 0 auto;
+            height: 48px;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-title {
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -.022em;
+        }
+
+        .nav-tag {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-2);
+            background: var(--fill);
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-family: 'SF Mono', ui-monospace, monospace;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rec-badge {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: var(--red-bg);
+            padding: 3px 10px 3px 8px;
+            border-radius: 100px;
+        }
+
+        .rec-badge.on { display: flex; }
+
+        .rec-badge-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--red);
+            border-radius: 50%;
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        .rec-badge-text {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--red);
+        }
+
+        .timer {
+            font-size: 13px;
+            font-weight: 500;
+            font-family: 'SF Mono', ui-monospace, monospace;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-2);
+            display: none;
+        }
+
+        .timer.on { display: block; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .2; }
+        }
+
+        /* ---- main ---- */
+        .main {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 20px 20px 100px;
+        }
+
+        /* ---- toolbar ---- */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1;
+            border: none;
+            border-radius: 980px;
+            padding: 7px 16px;
+            cursor: pointer;
+            transition: filter .15s, opacity .15s;
+            background: var(--fill);
+            color: var(--text-1);
+        }
+
+        .btn:hover:not(:disabled) { filter: brightness(.95); }
+        .btn:active:not(:disabled) { filter: brightness(.9); }
+        .btn:disabled { opacity: .32; cursor: default; filter: none; }
+
+        .btn-blue { background: var(--blue); color: #fff; }
+        .btn-blue:hover:not(:disabled) { background: var(--blue-hover); filter: none; }
+
+        .btn-red { background: var(--red); color: #fff; }
+        .btn-red:hover:not(:disabled) { filter: brightness(.9); }
+
+        .btn-dark { background: var(--text-1); color: #fff; }
+        .btn-dark:hover:not(:disabled) { filter: brightness(1.3); }
+
+        .toolbar-divider {
+            width: .5px;
+            height: 20px;
+            background: rgba(0,0,0,.12);
+            margin: 0 4px;
+        }
+
+        .field {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .field-label {
+            font-size: 12px;
+            color: var(--text-2);
+        }
+
+        select {
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            padding: 5px 8px;
+            background: var(--fill);
+            color: var(--text-1);
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100px;
+            height: 3px;
+            background: var(--fill);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 .5px 4px rgba(0,0,0,.2), 0 0 0 .5px rgba(0,0,0,.06);
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 15px;
+            height: 15px;
+            background: #fff;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 .5px 4px rgba(0,0,0,.2), 0 0 0 .5px rgba(0,0,0,.06);
+            cursor: pointer;
+        }
+
+        .range-val {
+            font-size: 11px;
+            font-weight: 500;
+            font-family: 'SF Mono', ui-monospace, monospace;
+            color: var(--text-2);
+            min-width: 48px;
+        }
+
+        .fps-input {
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            padding: 5px 8px;
+            background: var(--fill);
+            color: var(--text-1);
+            outline: none;
+            width: 52px;
+            -moz-appearance: textfield;
+        }
+
+        .fps-input::-webkit-inner-spin-button,
+        .fps-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+        }
+
+        /* ---- preview ---- */
+        .preview {
+            background: #000;
+            border-radius: var(--radius);
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            position: relative;
+            margin-bottom: 28px;
+            box-shadow: 0 0 0 .5px rgba(0,0,0,.08), 0 2px 12px rgba(0,0,0,.06);
+        }
+
+        .preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .preview-ph {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: rgba(255,255,255,.25);
+        }
+
+        .preview-ph svg { width: 36px; height: 36px; }
+        .preview-ph span { font-size: 13px; font-weight: 500; }
+
+        /* ---- list ---- */
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-2);
+            margin-bottom: 8px;
+            padding: 0 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-label .count {
+            font-weight: 400;
+            color: var(--text-3);
+        }
+
+        .card-list {
+            background: var(--card-solid);
+            border-radius: var(--radius);
+            box-shadow: 0 0 0 .5px var(--border), 0 1px 3px rgba(0,0,0,.04);
+            overflow: hidden;
+        }
+
+        .card-item {
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background .1s;
+            position: relative;
+        }
+
+        .card-item + .card-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 54px;
+            right: 14px;
+            height: .5px;
+            background: var(--border);
+        }
+
+        .card-item:hover { background: rgba(0,0,0,.02); }
+
+        .ci-thumb {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            background: var(--fill);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .ci-thumb svg {
+            width: 18px;
+            height: 18px;
+            color: var(--text-2);
+        }
+
+        .ci-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .ci-name {
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: -.01em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ci-tag {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: .02em;
+            padding: 1px 5px;
+            border-radius: 3px;
+            background: var(--fill);
+            color: var(--text-2);
+        }
+
+        .ci-tag.hevc { background: rgba(255,59,48,.08); color: #ff3b30; }
+        .ci-tag.avc { background: rgba(0,113,227,.08); color: #0071e3; }
+        .ci-tag.av1 { background: rgba(52,199,89,.08); color: #248a3d; }
+
+        .ci-detail {
+            font-size: 12px;
+            color: var(--text-3);
+            margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ci-actions {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+
+        .ci-btn {
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 500;
+            border: none;
+            background: transparent;
+            color: var(--blue);
+            padding: 5px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background .1s;
+        }
+
+        .ci-btn:hover { background: rgba(0,113,227,.06); }
+
+        .ci-btn-del {
+            color: var(--text-3);
+        }
+
+        .ci-btn-del:hover {
+            color: var(--red);
+            background: var(--red-bg);
+        }
+
+        .empty {
+            text-align: center;
+            padding: 56px 20px;
+            color: var(--text-3);
+            font-size: 14px;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <div class="nav-inner">
+            <div class="nav-left">
+                <span class="nav-title">Rec</span>
+                <span id="codecTag" class="nav-tag"></span>
+            </div>
+            <div class="nav-right">
+                <div id="recBadge" class="rec-badge">
+                    <span class="rec-badge-dot"></span>
+                    <span class="rec-badge-text">REC</span>
+                </div>
+                <span id="timer" class="timer">00:00</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="toolbar">
+            <button id="startBtn" class="btn btn-blue" onclick="startCapture()">共享屏幕</button>
+            <button id="recordBtn" class="btn btn-red" onclick="startRecording()" disabled>录制</button>
+            <button id="stopRecordBtn" class="btn btn-dark" onclick="stopRecording()" disabled>停止</button>
+            <button id="stopBtn" class="btn" onclick="stopCapture()" disabled>断开</button>
+            <div class="toolbar-divider"></div>
+            <div class="field">
+                <span class="field-label">格式</span>
+                <select id="codecSelect"></select>
+            </div>
+            <div class="toolbar-divider"></div>
+            <div class="field">
+                <span class="field-label">音频</span>
+                <select id="audioSelect">
+                    <option value="system" selected>系统声音</option>
+                    <option value="mic">麦克风</option>
+                    <option value="both">系统+麦克风</option>
+                    <option value="none">无</option>
+                </select>
+            </div>
+            <div class="toolbar-divider"></div>
+            <div class="field">
+                <span class="field-label">帧率</span>
+                <select id="fpsSelect">
+                    <option value="30">30</option>
+                    <option value="60" selected>60</option>
+                    <option value="custom">其他</option>
+                </select>
+                <input type="number" id="customFps" class="hidden fps-input" min="1" max="240" value="120">
+            </div>
+            <div class="toolbar-divider"></div>
+            <div class="field">
+                <span class="field-label">码率</span>
+                <select id="bitrateSelect">
+                    <option value="0" selected>自动</option>
+                    <option value="2000000">2 Mbps</option>
+                    <option value="5000000">5 Mbps</option>
+                    <option value="8000000">8 Mbps</option>
+                    <option value="16000000">16 Mbps</option>
+                    <option value="30000000">30 Mbps</option>
+                    <option value="custom">自定义</option>
+                </select>
+                <input type="range" id="customBitrate" class="hidden" min="500" max="50000" step="500" value="8000">
+                <span id="customBitrateLabel" class="hidden range-val">8 Mbps</span>
+            </div>
+        </div>
+
+        <div class="preview">
+            <video id="video" autoplay playsinline muted></video>
+            <div id="videoEmpty" class="preview-ph">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <span>选择屏幕以开始</span>
+            </div>
+        </div>
+
+        <div class="section-label">
+            <span>录制文件</span>
+            <span id="listCount" class="count"></span>
+        </div>
+
+        <div id="recordingList" class="card-list hidden"></div>
+        <div id="recordingEmpty" class="empty">暂无录制文件</div>
+    </div>
+
+    <script>
+        let stream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordingCount = 0;
+        let recordingStartTime = null;
+        let timerInterval = null;
+        let selectedMimeType = '';
+        let selectedCodecName = '';
+
+        const $ = id => document.getElementById(id);
+        const video = $('video');
+        const startBtn = $('startBtn');
+        const recordBtn = $('recordBtn');
+        const stopRecordBtn = $('stopRecordBtn');
+        const stopBtn = $('stopBtn');
+        const videoEmpty = $('videoEmpty');
+        const recordingList = $('recordingList');
+        const recordingEmpty = $('recordingEmpty');
+        const codecTag = $('codecTag');
+        const recBadge = $('recBadge');
+        const timerEl = $('timer');
+        const bitrateSelect = $('bitrateSelect');
+        const customBitrateInput = $('customBitrate');
+        const customBitrateLabel = $('customBitrateLabel');
+        const listCount = $('listCount');
+        const codecSelect = $('codecSelect');
+        const fpsSelect = $('fpsSelect');
+        const customFpsInput = $('customFps');
+        const audioSelect = $('audioSelect');
+
+        fpsSelect.addEventListener('change', () => {
+            customFpsInput.classList.toggle('hidden', fpsSelect.value !== 'custom');
+        });
+
+        function getSelectedFps() {
+            if (fpsSelect.value === 'custom') return parseInt(customFpsInput.value) || 60;
+            return parseInt(fpsSelect.value);
+        }
+
+        function fmtKbps(kbps) {
+            return kbps >= 1000
+                ? (kbps / 1000).toFixed(kbps % 1000 === 0 ? 0 : 1) + ' Mbps'
+                : kbps + ' Kbps';
+        }
+
+        bitrateSelect.addEventListener('change', () => {
+            const show = bitrateSelect.value === 'custom';
+            customBitrateInput.classList.toggle('hidden', !show);
+            customBitrateLabel.classList.toggle('hidden', !show);
+        });
+
+        customBitrateInput.addEventListener('input', () => {
+            customBitrateLabel.textContent = fmtKbps(parseInt(customBitrateInput.value));
+        });
+
+        const codecCandidates = [
+            { name: 'HEVC', mimeTypes: [
+                'video/mp4;codecs=hvc1.1.6.L120.90',
+                'video/mp4;codecs=hvc1.1.6.L93.90',
+                'video/mp4;codecs=hvc1',
+                'video/webm;codecs=hvc1',
+                'video/webm;codecs=hevc',
+            ]},
+            { name: 'AVC', mimeTypes: [
+                'video/mp4;codecs=avc1.640034',
+                'video/mp4;codecs=avc1.64002A',
+                'video/mp4;codecs=avc1.640028',
+                'video/mp4;codecs=avc1',
+                'video/webm;codecs=h264',
+            ]},
+            { name: 'AV1', mimeTypes: [
+                'video/mp4;codecs=av01.0.12M.08',
+                'video/mp4;codecs=av01.0.08M.08',
+                'video/mp4;codecs=av01',
+                'video/webm;codecs=av01.0.12M.08',
+                'video/webm;codecs=av01.0.08M.08',
+                'video/webm;codecs=av1',
+            ]},
+        ];
+
+        // 检测每个编码器的最佳可用 mimeType，返回 { name, mime } 数组
+        const availableCodecs = [];
+        for (const c of codecCandidates) {
+            for (const m of c.mimeTypes) {
+                if (MediaRecorder.isTypeSupported(m)) {
+                    availableCodecs.push({ name: c.name, mime: m });
+                    break;
+                }
+            }
+        }
+
+        // 构建下拉框：自动 + 各可用编码器
+        function buildCodecSelect() {
+            codecSelect.innerHTML = '';
+            const auto = document.createElement('option');
+            auto.value = 'auto';
+            auto.textContent = '自动';
+            codecSelect.appendChild(auto);
+            for (const c of availableCodecs) {
+                const opt = document.createElement('option');
+                opt.value = c.mime;
+                const short = c.mime.split(';')[1]?.replace('codecs=', '') || '';
+                opt.textContent = c.name + (short ? '  (' + short + ')' : '');
+                opt.dataset.codecName = c.name;
+                codecSelect.appendChild(opt);
+            }
+        }
+
+        function applyCodecSelection() {
+            if (codecSelect.value === 'auto') {
+                if (availableCodecs.length) {
+                    selectedMimeType = availableCodecs[0].mime;
+                    selectedCodecName = availableCodecs[0].name;
+                } else {
+                    selectedMimeType = 'video/webm';
+                    selectedCodecName = 'VP8';
+                }
+            } else {
+                selectedMimeType = codecSelect.value;
+                const opt = codecSelect.selectedOptions[0];
+                selectedCodecName = opt.dataset.codecName || 'VP8';
+            }
+            const short = selectedMimeType.split(';')[1]?.replace('codecs=', '') || selectedMimeType;
+            codecTag.textContent = selectedCodecName + ' · ' + short;
+        }
+
+        buildCodecSelect();
+        applyCodecSelection();
+
+        codecSelect.addEventListener('change', applyCodecSelection);
+
+        function getSelectedBitrate() {
+            if (bitrateSelect.value === 'custom') return (parseInt(customBitrateInput.value) || 0) * 1000;
+            return parseInt(bitrateSelect.value) || 0;
+        }
+
+        function fmtBitrate(bps) {
+            if (bps <= 0) return '自动';
+            if (bps >= 1e6) return (bps / 1e6).toFixed(0) + ' Mbps';
+            return (bps / 1e3).toFixed(0) + ' Kbps';
+        }
+
+        function fmtDur(ms) {
+            const s = Math.floor(ms / 1000);
+            return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+        }
+
+        function tickTimer() {
+            timerEl.textContent = '00:00';
+            timerInterval = setInterval(() => {
+                if (recordingStartTime) timerEl.textContent = fmtDur(Date.now() - recordingStartTime);
+            }, 500);
+        }
+
+        function stopTimer() { clearInterval(timerInterval); timerInterval = null; }
+
+        function updateListCount() {
+            const n = recordingList.children.length;
+            listCount.textContent = n ? n + ' 个' : '';
+            if (!n) {
+                recordingList.classList.add('hidden');
+                recordingEmpty.classList.remove('hidden');
+            }
+        }
+
+        if (!navigator.mediaDevices?.getDisplayMedia) {
+            startBtn.disabled = true;
+        }
+
+        let micStream = null;
+
+        async function startCapture() {
+            const audioMode = audioSelect.value;
+            const wantSystemAudio = audioMode === 'system' || audioMode === 'both';
+            const wantMic = audioMode === 'mic' || audioMode === 'both';
+
+            try {
+                const displayStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: 'always', frameRate: getSelectedFps() },
+                    audio: wantSystemAudio
+                });
+
+                // 如果需要麦克风，获取麦克风流
+                if (wantMic) {
+                    try {
+                        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    } catch {
+                        micStream = null;
+                    }
+                }
+
+                // 合成最终 stream
+                const videoTrack = displayStream.getVideoTracks()[0];
+                const audioTracks = [];
+
+                const sysAudioTracks = displayStream.getAudioTracks();
+                if (sysAudioTracks.length) audioTracks.push(...sysAudioTracks);
+                if (micStream) audioTracks.push(...micStream.getAudioTracks());
+
+                if (audioTracks.length > 1) {
+                    // 多音轨需要混音
+                    const ctx = new AudioContext();
+                    const dest = ctx.createMediaStreamDestination();
+                    for (const t of audioTracks) {
+                        ctx.createMediaStreamSource(new MediaStream([t])).connect(dest);
+                    }
+                    stream = new MediaStream([videoTrack, ...dest.stream.getAudioTracks()]);
+                    stream._audioCtx = ctx;
+                } else {
+                    stream = new MediaStream([videoTrack, ...audioTracks]);
+                }
+
+                // 原始 displayStream 的 track ended 事件
+                videoTrack.onended = () => stopCapture();
+
+                video.srcObject = stream;
+                videoEmpty.classList.add('hidden');
+                startBtn.disabled = true;
+                recordBtn.disabled = false;
+                stopBtn.disabled = false;
+                fpsSelect.disabled = true;
+                customFpsInput.disabled = true;
+                audioSelect.disabled = true;
+            } catch (e) {
+                if (e.name !== 'NotAllowedError') alert('共享失败: ' + e.message);
+            }
+        }
+
+        function stopCapture() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') stopRecording();
+            if (stream) {
+                if (stream._audioCtx) stream._audioCtx.close();
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
+            if (micStream) {
+                micStream.getTracks().forEach(t => t.stop());
+                micStream = null;
+            }
+            video.srcObject = null;
+            videoEmpty.classList.remove('hidden');
+            startBtn.disabled = false;
+            recordBtn.disabled = true;
+            stopRecordBtn.disabled = true;
+            stopBtn.disabled = true;
+            fpsSelect.disabled = false;
+            customFpsInput.disabled = false;
+            audioSelect.disabled = false;
+        }
+
+        const supportsFileAccess = 'showSaveFilePicker' in window;
+
+        let fileHandle = null;
+        let writableStream = null;
+        let totalBytesWritten = 0;
+        let recBitrate = 0;
+        let recCodecName = '';
+        let recExt = '';
+
+        async function startRecording() {
+            if (!stream) return;
+
+            recExt = selectedMimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
+            recBitrate = getSelectedBitrate();
+            recCodecName = selectedCodecName;
+
+            // 尝试用 File System Access API 直接写盘
+            if (supportsFileAccess) {
+                try {
+                    fileHandle = await window.showSaveFilePicker({
+                        suggestedName: `recording_${Date.now()}.${recExt}`,
+                        types: [{
+                            description: 'Video',
+                            accept: { [selectedMimeType.split(';')[0]]: ['.' + recExt] }
+                        }]
+                    });
+                    writableStream = await fileHandle.createWritable();
+                    totalBytesWritten = 0;
+                } catch (e) {
+                    // 用户取消了保存对话框
+                    if (e.name === 'AbortError') return;
+                    // API 出错，回退到内存模式
+                    fileHandle = null;
+                    writableStream = null;
+                }
+            }
+
+            bitrateSelect.disabled = true;
+            customBitrateInput.disabled = true;
+            codecSelect.disabled = true;
+            fpsSelect.disabled = true;
+            customFpsInput.disabled = true;
+            recordedChunks = [];
+
+            const opts = { mimeType: selectedMimeType };
+            if (recBitrate > 0) opts.videoBitsPerSecond = recBitrate;
+
+            try { mediaRecorder = new MediaRecorder(stream, opts); }
+            catch { mediaRecorder = new MediaRecorder(stream); }
+
+            mediaRecorder.ondataavailable = async (e) => {
+                if (e.data.size <= 0) return;
+                if (writableStream) {
+                    await writableStream.write(e.data);
+                    totalBytesWritten += e.data.size;
+                } else {
+                    recordedChunks.push(e.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => finishRecording();
+            mediaRecorder.start(1000);
+            recordingStartTime = Date.now();
+
+            recordBtn.disabled = true;
+            stopRecordBtn.disabled = false;
+            recBadge.classList.add('on');
+            timerEl.classList.add('on');
+            tickTimer();
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+            recordBtn.disabled = false;
+            stopRecordBtn.disabled = true;
+            bitrateSelect.disabled = false;
+            customBitrateInput.disabled = false;
+            codecSelect.disabled = false;
+            fpsSelect.disabled = false;
+            customFpsInput.disabled = false;
+            recBadge.classList.remove('on');
+            timerEl.classList.remove('on');
+            stopTimer();
+        }
+
+        async function finishRecording() {
+            const dur = Date.now() - recordingStartTime;
+            recordingCount++;
+            const idx = recordingCount;
+
+            if (writableStream) {
+                // 磁盘流模式
+                await writableStream.close();
+                const file = await fileHandle.getFile();
+                const sizeMB = (file.size / 1048576).toFixed(1);
+
+                addListItem({
+                    idx, dur, sizeMB, ext: recExt,
+                    codecName: recCodecName, bitrate: recBitrate,
+                    fileHandle, isDisk: true,
+                });
+
+                writableStream = null;
+                fileHandle = null;
+                totalBytesWritten = 0;
+            } else {
+                // 内存模式
+                if (!recordedChunks.length) return;
+                const blob = new Blob(recordedChunks, { type: selectedMimeType });
+                const url = URL.createObjectURL(blob);
+                const sizeMB = (blob.size / 1048576).toFixed(1);
+
+                addListItem({
+                    idx, dur, sizeMB, ext: recExt,
+                    codecName: recCodecName, bitrate: recBitrate,
+                    blobUrl: url, isDisk: false,
+                });
+
+                recordedChunks = [];
+            }
+        }
+
+        function addListItem({ idx, dur, sizeMB, ext, codecName, bitrate, blobUrl, fileHandle: fh, isDisk }) {
+            recordingEmpty.classList.add('hidden');
+            recordingList.classList.remove('hidden');
+
+            const tagCls = codecName.toLowerCase();
+            const mode = isDisk ? '磁盘' : '内存';
+            const detail = [fmtDur(dur), sizeMB + ' MB', fmtBitrate(bitrate), ext, mode].join(' \u00b7 ');
+
+            const el = document.createElement('div');
+            el.className = 'card-item';
+            if (blobUrl) el.dataset.url = blobUrl;
+            el.dataset.disk = isDisk ? '1' : '';
+
+            // 保存 fileHandle 引用
+            if (fh) el._fileHandle = fh;
+
+            const playBtn = isDisk
+                ? `<button class="ci-btn" onclick="playDiskItem(this)">播放</button>`
+                : `<button class="ci-btn" onclick="playItem(this)">播放</button>`;
+
+            const dlBtn = isDisk
+                ? ''
+                : `<button class="ci-btn" onclick="dlItem(this)" data-ext="${ext}" data-idx="${idx}">下载</button>`;
+
+            el.innerHTML = `
+                <div class="ci-thumb">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                        <rect x="1" y="5" width="15" height="14" rx="2"></rect>
+                    </svg>
+                </div>
+                <div class="ci-body">
+                    <div class="ci-name">recording_${idx}.${ext}<span class="ci-tag ${tagCls}">${codecName}</span></div>
+                    <div class="ci-detail">${detail}</div>
+                </div>
+                <div class="ci-actions">
+                    ${playBtn}
+                    ${dlBtn}
+                    <button class="ci-btn ci-btn-del" onclick="delItem(this)">删除</button>
+                </div>
+            `;
+            recordingList.insertBefore(el, recordingList.firstChild);
+            updateListCount();
+        }
+
+        function dlItem(btn) {
+            const el = btn.closest('.card-item');
+            const a = document.createElement('a');
+            a.href = el.dataset.url;
+            a.download = `recording_${btn.dataset.idx}_${Date.now()}.${btn.dataset.ext}`;
+            a.click();
+        }
+
+        function playItem(btn) {
+            const el = btn.closest('.card-item');
+            const w = window.open('', '_blank');
+            w.document.write(`<!DOCTYPE html><html><head><title>Playback</title>
+            <style>*{margin:0}body{background:#000;display:flex;align-items:center;justify-content:center;height:100vh}
+            video{max-width:100%;max-height:100%}</style></head>
+            <body><video src="${el.dataset.url}" controls autoplay></video></body></html>`);
+        }
+
+        async function playDiskItem(btn) {
+            const el = btn.closest('.card-item');
+            const fh = el._fileHandle;
+            if (!fh) return;
+            try {
+                const file = await fh.getFile();
+                const url = URL.createObjectURL(file);
+                const w = window.open('', '_blank');
+                w.document.write(`<!DOCTYPE html><html><head><title>Playback</title>
+                <style>*{margin:0}body{background:#000;display:flex;align-items:center;justify-content:center;height:100vh}
+                video{max-width:100%;max-height:100%}</style></head>
+                <body><video src="${url}" controls autoplay></video></body></html>`);
+                // 新窗口关闭时释放
+                w.addEventListener('unload', () => URL.revokeObjectURL(url));
+            } catch {
+                alert('无法读取文件，可能已被移动或删除');
+            }
+        }
+
+        function delItem(btn) {
+            const el = btn.closest('.card-item');
+            if (el.dataset.url) URL.revokeObjectURL(el.dataset.url);
+            el.remove();
+            updateListCount();
+        }
+    </script>
+</body>
+</html>
