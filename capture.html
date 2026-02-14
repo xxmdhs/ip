@@ -426,6 +426,53 @@
         }
 
         .hidden { display: none !important; }
+
+        /* ---- trim mode ---- */
+        .trim-bar {
+            display: none;
+            background: var(--card-solid);
+            border-radius: var(--radius);
+            box-shadow: 0 0 0 .5px var(--border), 0 1px 3px rgba(0,0,0,.04);
+            padding: 14px 16px;
+            margin-bottom: 28px;
+        }
+
+        .trim-bar.on { display: block; }
+
+        .trim-bar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .trim-bar-title {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: -.01em;
+        }
+
+        .trim-bar-range {
+            font-size: 13px;
+            font-family: 'SF Mono', ui-monospace, monospace;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-2);
+        }
+
+        .trim-bar-time {
+            font-size: 13px;
+            font-family: 'SF Mono', ui-monospace, monospace;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-2);
+            margin-bottom: 10px;
+        }
+
+        .trim-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
@@ -505,6 +552,20 @@
             </div>
         </div>
 
+        <div id="trimBar" class="trim-bar">
+            <div class="trim-bar-header">
+                <span class="trim-bar-title">剪辑</span>
+                <span id="trimRange" class="trim-bar-range">00:00 — 00:00</span>
+            </div>
+            <div id="trimTime" class="trim-bar-time">当前: 00:00</div>
+            <div class="trim-bar-actions">
+                <button class="btn" onclick="trimSetStart()">设为起点</button>
+                <button class="btn" onclick="trimSetEnd()">设为终点</button>
+                <button class="btn btn-blue" onclick="trimExport()">导出</button>
+                <button class="btn" onclick="trimCancel()">取消</button>
+            </div>
+        </div>
+
         <div class="section-label">
             <span>录制文件</span>
             <span id="listCount" class="count"></span>
@@ -523,6 +584,13 @@
         let timerInterval = null;
         let selectedMimeType = '';
         let selectedCodecName = '';
+
+        // ---- trim state ----
+        let chunkIndex = [];
+        let trimActive = false;
+        let trimStartTime = 0;
+        let trimEndTime = 0;
+        let trimItemEl = null;
 
         const $ = id => document.getElementById(id);
         const video = $('video');
@@ -544,6 +612,9 @@
         const fpsSelect = $('fpsSelect');
         const customFpsInput = $('customFps');
         const audioSelect = $('audioSelect');
+        const trimBar = $('trimBar');
+        const trimRange = $('trimRange');
+        const trimTime = $('trimTime');
 
         fpsSelect.addEventListener('change', () => {
             customFpsInput.classList.toggle('hidden', fpsSelect.value !== 'custom');
@@ -808,6 +879,7 @@
             fpsSelect.disabled = true;
             customFpsInput.disabled = true;
             recordedChunks = [];
+            chunkIndex = [];
 
             const opts = { mimeType: selectedMimeType };
             if (recBitrate > 0) opts.videoBitsPerSecond = recBitrate;
@@ -817,10 +889,14 @@
 
             mediaRecorder.ondataavailable = async (e) => {
                 if (e.data.size <= 0) return;
+                const chunkTime = Date.now() - recordingStartTime;
                 if (writableStream) {
+                    const offset = totalBytesWritten;
                     await writableStream.write(e.data);
                     totalBytesWritten += e.data.size;
+                    chunkIndex.push({ offset, size: e.data.size, time: chunkTime });
                 } else {
+                    chunkIndex.push({ offset: 0, size: e.data.size, time: chunkTime });
                     recordedChunks.push(e.data);
                 }
             };
@@ -865,6 +941,8 @@
                     idx, dur, sizeMB, ext: recExt,
                     codecName: recCodecName, bitrate: recBitrate,
                     fileHandle, isDisk: true,
+                    chunkIndex: [...chunkIndex],
+                    mimeType: selectedMimeType,
                 });
 
                 writableStream = null;
@@ -881,13 +959,16 @@
                     idx, dur, sizeMB, ext: recExt,
                     codecName: recCodecName, bitrate: recBitrate,
                     blobUrl: url, isDisk: false,
+                    chunkIndex: [...chunkIndex],
+                    chunks: recordedChunks,
+                    mimeType: selectedMimeType,
                 });
 
                 recordedChunks = [];
             }
         }
 
-        function addListItem({ idx, dur, sizeMB, ext, codecName, bitrate, blobUrl, fileHandle: fh, isDisk }) {
+        function addListItem({ idx, dur, sizeMB, ext, codecName, bitrate, blobUrl, fileHandle: fh, isDisk, chunkIndex: ci, chunks, mimeType }) {
             recordingEmpty.classList.add('hidden');
             recordingList.classList.remove('hidden');
 
@@ -902,6 +983,11 @@
 
             // 保存 fileHandle 引用
             if (fh) el._fileHandle = fh;
+            if (ci) el._chunkIndex = ci;
+            if (chunks) el._recordedChunks = chunks;
+            if (mimeType) el._mimeType = mimeType;
+            el._ext = ext;
+            el._dur = dur;
 
             const playBtn = isDisk
                 ? `<button class="ci-btn" onclick="playDiskItem(this)">播放</button>`
@@ -910,6 +996,8 @@
             const dlBtn = isDisk
                 ? ''
                 : `<button class="ci-btn" onclick="dlItem(this)" data-ext="${ext}" data-idx="${idx}">下载</button>`;
+
+            const trimBtn = `<button class="ci-btn" onclick="enterTrimMode(this)">剪辑</button>`;
 
             el.innerHTML = `
                 <div class="ci-thumb">
@@ -925,6 +1013,7 @@
                 <div class="ci-actions">
                     ${playBtn}
                     ${dlBtn}
+                    ${trimBtn}
                     <button class="ci-btn ci-btn-del" onclick="delItem(this)">删除</button>
                 </div>
             `;
@@ -970,9 +1059,166 @@
 
         function delItem(btn) {
             const el = btn.closest('.card-item');
+            if (trimActive && trimItemEl === el) trimCancel();
             if (el.dataset.url) URL.revokeObjectURL(el.dataset.url);
+            el._chunkIndex = null;
+            el._recordedChunks = null;
+            el._fileHandle = null;
             el.remove();
             updateListCount();
+        }
+
+        // ---- trim functions ----
+
+        function enterTrimMode(btn) {
+            const el = btn.closest('.card-item');
+            if (!el._chunkIndex || el._chunkIndex.length === 0) {
+                alert('该录制没有可用的剪辑索引');
+                return;
+            }
+            if (trimActive) trimCancel();
+
+            trimActive = true;
+            trimItemEl = el;
+            trimStartTime = 0;
+            trimEndTime = el._dur;
+
+            if (el.dataset.disk === '1' && el._fileHandle) {
+                el._fileHandle.getFile().then(file => {
+                    const url = URL.createObjectURL(file);
+                    video.srcObject = null;
+                    video.src = url;
+                    video.muted = false;
+                    video.controls = true;
+                    video.autoplay = false;
+                    video._trimBlobUrl = url;
+                    videoEmpty.classList.add('hidden');
+                }).catch(() => alert('无法读取文件'));
+            } else if (el.dataset.url) {
+                video.srcObject = null;
+                video.src = el.dataset.url;
+                video.muted = false;
+                video.controls = true;
+                video.autoplay = false;
+                videoEmpty.classList.add('hidden');
+            }
+
+            updateTrimRange();
+            trimBar.classList.add('on');
+            video.addEventListener('timeupdate', onTrimTimeUpdate);
+        }
+
+        function onTrimTimeUpdate() {
+            const ms = Math.floor(video.currentTime * 1000);
+            trimTime.textContent = '当前: ' + fmtDur(ms);
+        }
+
+        function updateTrimRange() {
+            trimRange.textContent = fmtDur(trimStartTime) + ' — ' + fmtDur(trimEndTime);
+        }
+
+        function trimSetStart() {
+            if (!trimActive) return;
+            trimStartTime = Math.floor(video.currentTime * 1000);
+            if (trimStartTime > trimEndTime) trimEndTime = trimItemEl._dur;
+            updateTrimRange();
+        }
+
+        function trimSetEnd() {
+            if (!trimActive) return;
+            trimEndTime = Math.floor(video.currentTime * 1000);
+            if (trimEndTime < trimStartTime) trimStartTime = 0;
+            updateTrimRange();
+        }
+
+        function trimCancel() {
+            trimActive = false;
+            trimItemEl = null;
+            trimBar.classList.remove('on');
+            video.removeEventListener('timeupdate', onTrimTimeUpdate);
+            video.pause();
+            video.controls = false;
+            video.muted = true;
+            if (video._trimBlobUrl) {
+                URL.revokeObjectURL(video._trimBlobUrl);
+                video._trimBlobUrl = null;
+            }
+            video.src = '';
+            if (stream) {
+                video.srcObject = stream;
+                videoEmpty.classList.add('hidden');
+            } else {
+                video.srcObject = null;
+                videoEmpty.classList.remove('hidden');
+            }
+        }
+
+        async function trimExport() {
+            if (!trimActive || !trimItemEl) return;
+
+            const el = trimItemEl;
+            const ci = el._chunkIndex;
+            if (!ci || ci.length === 0) return;
+
+            let startIdx = 1;
+            let endIdx = ci.length - 1;
+
+            for (let i = 1; i < ci.length; i++) {
+                if (ci[i].time >= trimStartTime) { startIdx = i; break; }
+            }
+            for (let i = ci.length - 1; i >= 1; i--) {
+                if (ci[i].time <= trimEndTime) { endIdx = i; break; }
+            }
+
+            if (startIdx > endIdx) {
+                alert('选择的范围内没有可用的数据块');
+                return;
+            }
+
+            const mimeType = el._mimeType || 'video/webm';
+            const ext = el._ext || 'webm';
+
+            if (el.dataset.disk === '1' && el._fileHandle) {
+                try {
+                    const file = await el._fileHandle.getFile();
+                    const headerChunk = ci[0];
+                    const headerBlob = file.slice(headerChunk.offset, headerChunk.offset + headerChunk.size);
+                    const bodyStart = ci[startIdx].offset;
+                    const bodyEnd = ci[endIdx].offset + ci[endIdx].size;
+                    const bodyBlob = file.slice(bodyStart, bodyEnd);
+                    const trimmedBlob = new Blob([headerBlob, bodyBlob], { type: mimeType.split(';')[0] });
+
+                    if (supportsFileAccess) {
+                        try {
+                            const saveFh = await window.showSaveFilePicker({
+                                suggestedName: `trimmed_${Date.now()}.${ext}`,
+                                types: [{ description: 'Video', accept: { [mimeType.split(';')[0]]: ['.' + ext] } }]
+                            });
+                            const ws = await saveFh.createWritable();
+                            await ws.write(trimmedBlob);
+                            await ws.close();
+                        } catch (e) {
+                            if (e.name !== 'AbortError') alert('保存失败: ' + e.message);
+                        }
+                    }
+                } catch {
+                    alert('无法读取原始文件');
+                }
+            } else {
+                const chunks = el._recordedChunks;
+                if (!chunks || chunks.length === 0) {
+                    alert('录制数据已不可用');
+                    return;
+                }
+                const selected = [chunks[0], ...chunks.slice(startIdx, endIdx + 1)];
+                const trimmedBlob = new Blob(selected, { type: mimeType.split(';')[0] });
+                const url = URL.createObjectURL(trimmedBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `trimmed_${Date.now()}.${ext}`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
+            }
         }
     </script>
 </body>
