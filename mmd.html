@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMX 模型查看器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            color: #eee;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+        }
+        #toolbar {
+            position: fixed; top: 0; left: 0; right: 0;
+            padding: 10px 16px;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(10px);
+            display: flex; align-items: center; gap: 12px;
+            z-index: 100;
+            flex-wrap: wrap;
+        }
+        #toolbar label.btn {
+            cursor: pointer;
+            padding: 6px 16px;
+            background: #3a86ff;
+            border-radius: 6px;
+            font-size: 14px;
+            user-select: none;
+            white-space: nowrap;
+        }
+        #toolbar label.btn:hover { background: #2667cc; }
+        #folderInput { display: none; }
+        #modelSelect {
+            padding: 6px 10px;
+            background: #16213e;
+            color: #eee;
+            border: 1px solid #555;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 220px;
+            max-width: 400px;
+        }
+        #modelSelect:disabled { opacity: 0.5; }
+        .toggle-group {
+            display: flex; gap: 4px;
+        }
+        .toggle-group button {
+            padding: 5px 12px;
+            background: #16213e;
+            color: #aaa;
+            border: 1px solid #555;
+            border-radius: 5px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .toggle-group button:hover { background: #1f2f50; color: #ddd; }
+        .toggle-group button.active { background: #3a86ff; color: #fff; border-color: #3a86ff; }
+        #info {
+            margin-left: auto;
+            font-size: 13px;
+            color: #aaa;
+            white-space: nowrap;
+        }
+        #info span { color: #4ecdc4; font-weight: bold; }
+        #folderName {
+            font-size: 13px;
+            color: #888;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #overlay.show { opacity: 1; pointer-events: auto; }
+        #overlay .msg {
+            background: #16213e;
+            padding: 20px 36px;
+            border-radius: 10px;
+            font-size: 16px;
+            border: 1px solid #333;
+        }
+        #hint {
+            position: fixed; bottom: 16px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px; color: #666;
+            z-index: 100;
+        }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <label class="btn">
+            [+] 选择文件夹
+            <input type="file" id="folderInput" webkitdirectory>
+        </label>
+        <span id="folderName"></span>
+        <select id="modelSelect" disabled>
+            <option>请先选择包含模型的文件夹</option>
+        </select>
+        <div class="toggle-group">
+            <button id="btnNormal" class="active">材质</button>
+            <button id="btnGray">灰模</button>
+            <button id="btnWire">线框</button>
+        </div>
+        <div id="info">
+            面数: <span id="faceCount">-</span> &nbsp;|&nbsp;
+            顶点: <span id="vertexCount">-</span>
+        </div>
+    </div>
+    <div id="overlay"><div class="msg" id="overlayMsg">加载中...</div></div>
+    <div id="hint">鼠标左键旋转 | 右键平移 | 滚轮缩放</div>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
+
+        // --- Renderer ---
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        document.body.appendChild(renderer.domElement);
+
+        // --- Scene ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+
+        // --- Camera ---
+        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 15, 30);
+
+        // --- Controls ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.set(0, 10, 0);
+        controls.update();
+
+        // --- Lights ---
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        dirLight.position.set(5, 20, 10);
+        scene.add(dirLight);
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        backLight.position.set(-5, 10, -10);
+        scene.add(backLight);
+
+        // --- Grid ---
+        scene.add(new THREE.GridHelper(50, 50, 0x444466, 0x2a2a44));
+
+        // --- State ---
+        let currentMesh = null;
+        let originalMaterials = null; // 保存原始材质用于恢复
+        let displayMode = 'normal';   // 'normal' | 'gray' | 'wire'
+        let fileMap = new Map();        // relativePath -> blobURL
+        let fileNameMap = new Map();    // filename (lowercase) -> blobURL (last wins)
+        let pmxFiles = [];
+
+        // --- DOM ---
+        const folderInput = document.getElementById('folderInput');
+        const modelSelect = document.getElementById('modelSelect');
+        const faceCountEl = document.getElementById('faceCount');
+        const vertexCountEl = document.getElementById('vertexCount');
+        const folderNameEl = document.getElementById('folderName');
+        const overlay = document.getElementById('overlay');
+        const overlayMsg = document.getElementById('overlayMsg');
+        const btnNormal = document.getElementById('btnNormal');
+        const btnGray = document.getElementById('btnGray');
+        const btnWire = document.getElementById('btnWire');
+
+        function showOverlay(msg) {
+            overlayMsg.textContent = msg;
+            overlay.classList.add('show');
+        }
+        function hideOverlay() {
+            overlay.classList.remove('show');
+        }
+
+        // --- Display mode ---
+        function setDisplayMode(mode) {
+            displayMode = mode;
+            btnNormal.classList.toggle('active', mode === 'normal');
+            btnGray.classList.toggle('active', mode === 'gray');
+            btnWire.classList.toggle('active', mode === 'wire');
+            applyDisplayMode();
+        }
+
+        // Distinct hues for wireframe coloring
+        const WIRE_PALETTE = [
+            0xff4444, 0x44cc44, 0x4488ff, 0xffaa00, 0xcc44ff,
+            0x00cccc, 0xff6699, 0x88cc00, 0xff8844, 0x4466ff,
+            0xaadd00, 0xdd44aa, 0x00aaff, 0xffcc33, 0x66ddaa,
+            0xbb66ff, 0xff5577, 0x33ccaa, 0xdd8833, 0x7799ff,
+        ];
+
+        function applyDisplayMode() {
+            if (!currentMesh || !originalMaterials) return;
+            let colorIdx = 0;
+            currentMesh.traverse((child) => {
+                if (!child.isMesh) return;
+                const orig = originalMaterials.get(child);
+                if (!orig) return;
+
+                if (displayMode === 'normal') {
+                    child.material = orig;
+                } else if (displayMode === 'gray') {
+                    const mats = Array.isArray(orig) ? orig : [orig];
+                    child.material = mats.map(m => {
+                        const gray = new THREE.MeshPhongMaterial({
+                            color: 0x888888,
+                            side: m.side,
+                            skinning: true,
+                        });
+                        return gray;
+                    });
+                    if (!Array.isArray(orig)) child.material = child.material[0];
+                } else if (displayMode === 'wire') {
+                    const mats = Array.isArray(orig) ? orig : [orig];
+                    child.material = mats.map(m => {
+                        const c = WIRE_PALETTE[colorIdx % WIRE_PALETTE.length];
+                        colorIdx++;
+                        return new THREE.MeshBasicMaterial({
+                            color: c,
+                            wireframe: true,
+                            side: m.side,
+                            skinning: true,
+                        });
+                    });
+                    if (!Array.isArray(orig)) child.material = child.material[0];
+                }
+            });
+        }
+
+        btnNormal.addEventListener('click', () => setDisplayMode('normal'));
+        btnGray.addEventListener('click', () => setDisplayMode('gray'));
+        btnWire.addEventListener('click', () => setDisplayMode('wire'));
+
+        // --- Folder selection ---
+        folderInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (!files || !files.length) return;
+
+            // Revoke old blob URLs
+            for (const url of fileMap.values()) URL.revokeObjectURL(url);
+            fileMap.clear();
+            fileNameMap.clear();
+            pmxFiles = [];
+
+            const baseFolder = files[0].webkitRelativePath.split('/')[0];
+            folderNameEl.textContent = baseFolder;
+
+            for (const file of files) {
+                const blobUrl = URL.createObjectURL(file);
+                const rel = file.webkitRelativePath.substring(baseFolder.length + 1);
+                fileMap.set(rel, blobUrl);
+                fileNameMap.set(file.name.toLowerCase(), blobUrl);
+
+                const lower = file.name.toLowerCase();
+                if (lower.endsWith('.pmx') || lower.endsWith('.pmd')) {
+                    pmxFiles.push({ name: file.name, relativePath: rel });
+                }
+            }
+
+            // Sort by name
+            pmxFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+            modelSelect.innerHTML = '';
+            if (pmxFiles.length === 0) {
+                modelSelect.innerHTML = '<option>未找到 PMX/PMD 模型文件</option>';
+                modelSelect.disabled = true;
+                return;
+            }
+
+            pmxFiles.forEach((f, i) => {
+                const opt = document.createElement('option');
+                opt.value = String(i);
+                opt.textContent = f.name;
+                modelSelect.appendChild(opt);
+            });
+            modelSelect.disabled = false;
+
+            loadModel(pmxFiles[0]);
+        });
+
+        modelSelect.addEventListener('change', () => {
+            const idx = parseInt(modelSelect.value);
+            if (pmxFiles[idx]) loadModel(pmxFiles[idx]);
+        });
+
+        // --- Load model ---
+        function loadModel(pmxFile) {
+            showOverlay('加载中...');
+            faceCountEl.textContent = '-';
+            vertexCountEl.textContent = '-';
+
+            // Cleanup
+            if (currentMesh) {
+                scene.remove(currentMesh);
+                currentMesh.traverse((child) => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+                        mats.forEach(m => {
+                            if (m.map) m.map.dispose();
+                            if (m.matcap) m.matcap.dispose();
+                            if (m.normalMap) m.normalMap.dispose();
+                            m.dispose();
+                        });
+                    }
+                });
+                currentMesh = null;
+                originalMaterials = null;
+            }
+
+            // Determine directory of the PMX file for relative texture lookup
+            const pmxDir = pmxFile.relativePath.includes('/')
+                ? pmxFile.relativePath.substring(0, pmxFile.relativePath.lastIndexOf('/') + 1)
+                : '';
+
+            const RESOURCE_PREFIX = '__mmd_res__/';
+
+            const manager = new THREE.LoadingManager();
+            manager.setURLModifier((url) => {
+                // Direct blob URLs pass through
+                if (url.startsWith('blob:')) return url;
+
+                if (url.startsWith(RESOURCE_PREFIX)) {
+                    let texPath = url.substring(RESOURCE_PREFIX.length);
+                    try { texPath = decodeURIComponent(texPath); } catch(e) {}
+                    texPath = texPath.replace(/\\/g, '/');
+
+                    // 1. Try exact relative path under PMX directory
+                    const fullPath = pmxDir + texPath;
+                    if (fileMap.has(fullPath)) return fileMap.get(fullPath);
+
+                    // 2. Try as-is
+                    if (fileMap.has(texPath)) return fileMap.get(texPath);
+
+                    // 3. Try by filename only, prefer files in same directory
+                    const name = texPath.split('/').pop();
+                    const nameLower = name.toLowerCase();
+
+                    // Search same directory first
+                    if (pmxDir) {
+                        for (const [path, blobUrl] of fileMap.entries()) {
+                            if (path.startsWith(pmxDir) && path.toLowerCase().endsWith(nameLower)) {
+                                return blobUrl;
+                            }
+                        }
+                    }
+
+                    // Fallback: any file with that name
+                    if (fileNameMap.has(nameLower)) return fileNameMap.get(nameLower);
+
+                    // Try with different extension (some PMX reference .tga but .png exists, etc.)
+                    const baseName = nameLower.replace(/\.[^.]+$/, '');
+                    for (const ext of ['.png', '.jpg', '.jpeg', '.bmp', '.tga']) {
+                        if (fileNameMap.has(baseName + ext)) return fileNameMap.get(baseName + ext);
+                    }
+
+                    console.warn('[Viewer] Texture not found:', texPath);
+                }
+                return url;
+            });
+
+            const loader = new MMDLoader(manager);
+            loader.setResourcePath(RESOURCE_PREFIX);
+
+            // Use a virtual URL with the real filename so MMDLoader can detect the extension
+            const modelUrl = RESOURCE_PREFIX + pmxFile.relativePath;
+
+            loader.load(
+                modelUrl,
+                (mesh) => {
+                    // 修正材质：MMDLoader 将 PMX ambient 错误映射为 emissive（自发光），
+                    // 导致颜色被灰白冲淡，需要清除 emissive
+                    mesh.traverse((child) => {
+                        if (!child.isMesh) return;
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+                        mats.forEach(m => {
+                            if (m.emissive) m.emissive.set(0, 0, 0);
+                        });
+                    });
+
+                    scene.add(mesh);
+                    currentMesh = mesh;
+
+                    // Save original materials for mode switching
+                    originalMaterials = new Map();
+                    mesh.traverse((child) => {
+                        if (child.isMesh) {
+                            originalMaterials.set(child, child.material);
+                        }
+                    });
+
+                    // Apply current display mode
+                    if (displayMode !== 'normal') applyDisplayMode();
+
+                    // Count faces & vertices
+                    let faces = 0, vertices = 0;
+                    mesh.traverse((child) => {
+                        if (child.geometry) {
+                            const geo = child.geometry;
+                            faces += geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3;
+                            vertices += geo.attributes.position.count;
+                        }
+                    });
+                    faceCountEl.textContent = Math.floor(faces).toLocaleString();
+                    vertexCountEl.textContent = vertices.toLocaleString();
+
+                    // Auto-frame camera
+                    const box = new THREE.Box3().setFromObject(mesh);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+
+                    controls.target.copy(center);
+                    camera.position.set(
+                        center.x + maxDim * 0.3,
+                        center.y + maxDim * 0.2,
+                        center.z + maxDim * 1.5
+                    );
+                    controls.update();
+
+                    hideOverlay();
+                },
+                (xhr) => {
+                    if (xhr.total) {
+                        const pct = Math.round(xhr.loaded / xhr.total * 100);
+                        overlayMsg.textContent = '加载中... ' + pct + '%';
+                    }
+                },
+                (error) => {
+                    console.error('Model load error:', error);
+                    overlayMsg.textContent = '加载失败: ' + (error.message || error);
+                    setTimeout(hideOverlay, 3000);
+                }
+            );
+        }
+
+        // --- Render loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // --- Resize ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
