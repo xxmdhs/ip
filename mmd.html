@@ -114,13 +114,16 @@
             <button id="btnGray">灰模</button>
             <button id="btnWire">线框</button>
         </div>
+        <div class="toggle-group">
+            <button id="btnBone">骨骼</button>
+        </div>
         <div id="info">
             面数: <span id="faceCount">-</span> &nbsp;|&nbsp;
             顶点: <span id="vertexCount">-</span>
         </div>
     </div>
     <div id="overlay"><div class="msg" id="overlayMsg">加载中...</div></div>
-    <div id="hint">鼠标左键旋转 | 右键平移 | 滚轮缩放</div>
+    <div id="hint">鼠标左键旋转 | 右键平移 | 滚轮缩放 | 骨骼模式下左键拖拽骨骼可调整姿态</div>
     <script type="importmap">
     {
         "imports": {
@@ -170,11 +173,24 @@
 
         // --- State ---
         let currentMesh = null;
+        let skeletonHelper = null;
         let originalMaterials = null; // 保存原始材质用于恢复
         let displayMode = 'normal';   // 'normal' | 'gray' | 'wire'
+        let showBone = false;
         let fileMap = new Map();        // relativePath -> blobURL
         let fileNameMap = new Map();    // filename (lowercase) -> blobURL (last wins)
         let pmxFiles = [];
+
+        // 骨骼交互状态
+        let boneJointEntries = [];     // { bone, sphere }
+        let boneSegEntries = [];       // { parentBone, childBone, fill, edge, len }
+        let pickableMeshes = [];       // 可拾取的 mesh 列表
+        let meshToBone = new Map();    // visual mesh → bone
+        let selectedBone = null;
+        let isDraggingBone = false;
+        let dragPrevMouse = new THREE.Vector2();
+        const raycaster = new THREE.Raycaster();
+        const SEL_COLOR = new THREE.Color(0xffee44);
 
         // --- DOM ---
         const folderInput = document.getElementById('folderInput');
@@ -187,6 +203,7 @@
         const btnNormal = document.getElementById('btnNormal');
         const btnGray = document.getElementById('btnGray');
         const btnWire = document.getElementById('btnWire');
+        const btnBone = document.getElementById('btnBone');
 
         function showOverlay(msg) {
             overlayMsg.textContent = msg;
@@ -255,6 +272,265 @@
         btnGray.addEventListener('click', () => setDisplayMode('gray'));
         btnWire.addEventListener('click', () => setDisplayMode('wire'));
 
+        btnBone.addEventListener('click', () => {
+            showBone = !showBone;
+            btnBone.classList.toggle('active', showBone);
+            if (skeletonHelper) skeletonHelper.visible = showBone;
+            if (!showBone) deselectBone();
+        });
+
+        // --- Octahedral bone geometry (unit length = 1) ---
+        function createOctahedronBoneGeo(length) {
+            const w = Math.max(length * 0.1, 0.04);
+            const neck = length * 0.15;
+            const v = new Float32Array([
+                0,  0,       0,
+                w,  neck,    0,
+                0,  neck,    w,
+               -w,  neck,    0,
+                0,  neck,   -w,
+                0,  length,  0,
+            ]);
+            const idx = [
+                0,1,2, 0,2,3, 0,3,4, 0,4,1,
+                5,2,1, 5,3,2, 5,4,3, 5,1,4,
+            ];
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(v, 3));
+            geo.setIndex(idx);
+            geo.computeVertexNormals();
+            return geo;
+        }
+
+        // --- 骨骼层级深度 & 颜色 ---
+        function calcBoneDepthMap(bones) {
+            const depthMap = new Map();
+            function calc(bone) {
+                if (depthMap.has(bone)) return depthMap.get(bone);
+                if (!bone.parent || !bone.parent.isBone) { depthMap.set(bone, 0); return 0; }
+                const d = calc(bone.parent) + 1;
+                depthMap.set(bone, d);
+                return d;
+            }
+            let maxDepth = 0;
+            for (const b of bones) { const d = calc(b); if (d > maxDepth) maxDepth = d; }
+            return { depthMap, maxDepth };
+        }
+        function depthToColor(depth, maxDepth) {
+            const t = maxDepth > 0 ? depth / maxDepth : 0;
+            return new THREE.Color().setHSL(t * 0.65, 0.85, 0.55);
+        }
+
+        // --- 构建骨骼可视化 ---
+        function buildBoneVisualization(mesh) {
+            const group = new THREE.Group();
+            group.name = '__bone_vis__';
+            mesh.updateMatrixWorld(true);
+
+            boneJointEntries = [];
+            boneSegEntries = [];
+            pickableMeshes = [];
+            meshToBone = new Map();
+
+            const bones = [];
+            mesh.traverse(c => { if (c.isBone) bones.push(c); });
+
+            const { depthMap, maxDepth } = calcBoneDepthMap(bones);
+
+            const jointGeo = new THREE.SphereGeometry(1, 8, 6);
+
+            // 平均骨骼长度 → 关节球半径
+            let totalLen = 0, segCount = 0;
+            for (const bone of bones) {
+                for (const child of bone.children) {
+                    if (!child.isBone) continue;
+                    const p = new THREE.Vector3(), c = new THREE.Vector3();
+                    bone.getWorldPosition(p); child.getWorldPosition(c);
+                    const len = p.distanceTo(c);
+                    if (len > 0.001) { totalLen += len; segCount++; }
+                }
+            }
+            const avgLen = segCount > 0 ? totalLen / segCount : 1;
+            const jointRadius = avgLen * 0.04;
+
+            const upVec = new THREE.Vector3(0, 1, 0);
+
+            for (const bone of bones) {
+                const bonePos = new THREE.Vector3();
+                bone.getWorldPosition(bonePos);
+                const depth = depthMap.get(bone) || 0;
+                const color = depthToColor(depth, maxDepth);
+
+                // 关节球
+                const jMat = new THREE.MeshBasicMaterial({
+                    color: color.clone().offsetHSL(0, 0, 0.15),
+                    depthTest: false, transparent: true, opacity: 0.8,
+                });
+                const sphere = new THREE.Mesh(jointGeo, jMat);
+                sphere.position.copy(bonePos);
+                sphere.scale.setScalar(jointRadius);
+                sphere.renderOrder = 1;
+                sphere.userData._boneRef = bone;
+                sphere.userData._baseColor = jMat.color.clone();
+                group.add(sphere);
+                pickableMeshes.push(sphere);
+                meshToBone.set(sphere, bone);
+                boneJointEntries.push({ bone, sphere });
+
+                // 对每个子骨骼绘制八面体
+                for (const child of bone.children) {
+                    if (!child.isBone) continue;
+                    const childPos = new THREE.Vector3();
+                    child.getWorldPosition(childPos);
+                    const dir = childPos.clone().sub(bonePos);
+                    const len = dir.length();
+                    if (len < 0.001) continue;
+
+                    const geo = createOctahedronBoneGeo(len);
+                    const quat = new THREE.Quaternion().setFromUnitVectors(upVec, dir.clone().normalize());
+
+                    const fMat = new THREE.MeshBasicMaterial({
+                        color: color.clone(), depthTest: false, transparent: true, opacity: 0.35,
+                        side: THREE.DoubleSide,
+                    });
+                    const fill = new THREE.Mesh(geo, fMat);
+                    fill.position.copy(bonePos);
+                    fill.quaternion.copy(quat);
+                    fill.renderOrder = 1;
+                    fill.userData._boneRef = bone;
+                    fill.userData._baseColor = fMat.color.clone();
+                    group.add(fill);
+                    pickableMeshes.push(fill);
+                    meshToBone.set(fill, bone);
+
+                    const eMat = new THREE.MeshBasicMaterial({
+                        color: color.clone().offsetHSL(0, 0, 0.2),
+                        depthTest: false, wireframe: true,
+                    });
+                    const edge = new THREE.Mesh(geo, eMat);
+                    edge.position.copy(bonePos);
+                    edge.quaternion.copy(quat);
+                    edge.renderOrder = 2;
+                    edge.userData._boneRef = bone;
+                    edge.userData._baseColor = eMat.color.clone();
+                    group.add(edge);
+
+                    boneSegEntries.push({ parentBone: bone, childBone: child, fill, edge, len });
+                }
+            }
+            return group;
+        }
+
+        // --- 更新骨骼可视化位置（骨骼旋转后调用） ---
+        function updateBoneVisPositions() {
+            if (!currentMesh || !skeletonHelper) return;
+            currentMesh.updateMatrixWorld(true);
+            const upVec = new THREE.Vector3(0, 1, 0);
+
+            for (const entry of boneJointEntries) {
+                const pos = new THREE.Vector3();
+                entry.bone.getWorldPosition(pos);
+                entry.sphere.position.copy(pos);
+            }
+            for (const seg of boneSegEntries) {
+                const pPos = new THREE.Vector3(), cPos = new THREE.Vector3();
+                seg.parentBone.getWorldPosition(pPos);
+                seg.childBone.getWorldPosition(cPos);
+                const dir = cPos.clone().sub(pPos);
+                const len = dir.length();
+                if (len < 0.001) continue;
+                const quat = new THREE.Quaternion().setFromUnitVectors(upVec, dir.clone().normalize());
+                seg.fill.position.copy(pPos);
+                seg.fill.quaternion.copy(quat);
+                seg.edge.position.copy(pPos);
+                seg.edge.quaternion.copy(quat);
+            }
+        }
+
+        // --- 选中 / 取消选中骨骼 ---
+        function selectBone(bone) {
+            deselectBone();
+            selectedBone = bone;
+            // 高亮所有属于该 bone 的可视 mesh
+            skeletonHelper.traverse(c => {
+                if (c.isMesh && c.userData._boneRef === bone) {
+                    c.material.color.copy(SEL_COLOR);
+                }
+            });
+        }
+        function deselectBone() {
+            if (!selectedBone || !skeletonHelper) return;
+            const prev = selectedBone;
+            selectedBone = null;
+            skeletonHelper.traverse(c => {
+                if (c.isMesh && c.userData._boneRef === prev && c.userData._baseColor) {
+                    c.material.color.copy(c.userData._baseColor);
+                }
+            });
+        }
+
+        // --- 鼠标拾取 & 拖拽骨骼 ---
+        function getNDC(e) {
+            return new THREE.Vector2(
+                (e.clientX / window.innerWidth) * 2 - 1,
+                -(e.clientY / window.innerHeight) * 2 + 1
+            );
+        }
+
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            if (e.button !== 0 || !showBone || !skeletonHelper || !pickableMeshes.length) return;
+
+            raycaster.setFromCamera(getNDC(e), camera);
+            const hits = raycaster.intersectObjects(pickableMeshes, false);
+            if (hits.length === 0) { deselectBone(); return; }
+
+            const bone = meshToBone.get(hits[0].object);
+            if (!bone) return;
+
+            selectBone(bone);
+            isDraggingBone = true;
+            dragPrevMouse.set(e.clientX, e.clientY);
+            controls.enabled = false;        // 禁用轨道控制
+            renderer.domElement.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+
+        renderer.domElement.addEventListener('pointermove', (e) => {
+            if (!isDraggingBone || !selectedBone) return;
+
+            const dx = (e.clientX - dragPrevMouse.x) * 0.005;
+            const dy = (e.clientY - dragPrevMouse.y) * 0.005;
+            dragPrevMouse.set(e.clientX, e.clientY);
+
+            // 沿摄像机右方向和上方向旋转
+            const camRight = new THREE.Vector3();
+            const camUp = new THREE.Vector3();
+            camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+            camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+
+            const worldQ = new THREE.Quaternion()
+                .setFromAxisAngle(camUp, dx)
+                .multiply(new THREE.Quaternion().setFromAxisAngle(camRight, dy));
+
+            // 将世界旋转转换到骨骼父节点的本地空间
+            const parentWorldQ = new THREE.Quaternion();
+            if (selectedBone.parent) {
+                selectedBone.parent.getWorldQuaternion(parentWorldQ);
+            }
+            const parentInv = parentWorldQ.clone().invert();
+            const localQ = parentInv.clone().multiply(worldQ).multiply(parentWorldQ);
+
+            selectedBone.quaternion.premultiply(localQ);
+            updateBoneVisPositions();
+        });
+
+        renderer.domElement.addEventListener('pointerup', (e) => {
+            if (!isDraggingBone) return;
+            isDraggingBone = false;
+            controls.enabled = true;
+            renderer.domElement.releasePointerCapture(e.pointerId);
+        });
+
         // --- Folder selection ---
         folderInput.addEventListener('change', (e) => {
             const files = e.target.files;
@@ -316,6 +592,19 @@
             // Cleanup
             if (currentMesh) {
                 scene.remove(currentMesh);
+                if (skeletonHelper) {
+                    scene.remove(skeletonHelper);
+                    skeletonHelper.traverse(c => {
+                        if (c.geometry) c.geometry.dispose();
+                    });
+                    skeletonHelper = null;
+                    boneJointEntries = [];
+                    boneSegEntries = [];
+                    pickableMeshes = [];
+                    meshToBone.clear();
+                    selectedBone = null;
+                    isDraggingBone = false;
+                }
                 currentMesh.traverse((child) => {
                     if (child.geometry) child.geometry.dispose();
                     if (child.material) {
@@ -415,6 +704,11 @@
 
                     // Apply current display mode
                     if (displayMode !== 'normal') applyDisplayMode();
+
+                    // Create bone visualization
+                    skeletonHelper = buildBoneVisualization(mesh);
+                    skeletonHelper.visible = showBone;
+                    scene.add(skeletonHelper);
 
                     // Count faces & vertices
                     let faces = 0, vertices = 0;
