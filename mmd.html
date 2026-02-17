@@ -58,6 +58,17 @@
         }
         .toggle-group button:hover { background: #1f2f50; color: #ddd; }
         .toggle-group button.active { background: #3a86ff; color: #fff; border-color: #3a86ff; }
+        .reset-btn {
+            padding: 5px 12px;
+            background: #cc4444;
+            color: #fff;
+            border: 1px solid #aa3333;
+            border-radius: 5px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .reset-btn:hover { background: #ee5555; }
         #info {
             margin-left: auto;
             font-size: 13px;
@@ -96,6 +107,66 @@
             font-size: 12px; color: #666;
             z-index: 100;
         }
+
+        /* 虚拟摇杆样式 */
+        #joystickPanel {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            gap: 40px;
+            align-items: center;
+            z-index: 150;
+        }
+        #joystickPanel.show { display: flex; }
+        .joystick-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .joystick-label {
+            font-size: 12px;
+            color: #888;
+        }
+        .joystick-base {
+            width: 100px;
+            height: 100px;
+            background: rgba(30, 40, 60, 0.85);
+            border: 2px solid #4a5568;
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+        .joystick-stick {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #5a7faf, #3a5a8f);
+            border: 2px solid #6a8abf;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .joystick-stick:active { cursor: grabbing; }
+        #selectedBoneName {
+            position: fixed;
+            bottom: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30, 40, 60, 0.9);
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #4ecdc4;
+            display: none;
+            z-index: 150;
+        }
+        #selectedBoneName.show { display: block; }
         canvas { display: block; }
     </style>
 </head>
@@ -117,13 +188,30 @@
         <div class="toggle-group">
             <button id="btnBone">骨骼</button>
         </div>
+        <button id="btnReset" class="reset-btn">重置</button>
         <div id="info">
             面数: <span id="faceCount">-</span> &nbsp;|&nbsp;
-            顶点: <span id="vertexCount">-</span>
+            顶点: <span id="vertexCount">-</span> &nbsp;|&nbsp;
+            <span id="fpsCount">-</span> FPS
         </div>
     </div>
     <div id="overlay"><div class="msg" id="overlayMsg">加载中...</div></div>
-    <div id="hint">鼠标左键旋转 | 右键平移 | 滚轮缩放 | 骨骼模式下左键拖拽骨骼可调整姿态</div>
+    <div id="hint">鼠标左键旋转 | 右键平移 | 滚轮缩放 | 骨骼模式下点击骨骼可选中并用摇杆调整姿态</div>
+    <div id="selectedBoneName"></div>
+    <div id="joystickPanel">
+        <div class="joystick-container">
+            <div class="joystick-label">旋转 (X/Z)</div>
+            <div class="joystick-base" id="joystickRotate">
+                <div class="joystick-stick" id="stickRotate"></div>
+            </div>
+        </div>
+        <div class="joystick-container">
+            <div class="joystick-label">俯仰 (Y轴)</div>
+            <div class="joystick-base" id="joystickPitch">
+                <div class="joystick-stick" id="stickPitch"></div>
+            </div>
+        </div>
+    </div>
     <script type="importmap">
     {
         "imports": {
@@ -187,8 +275,7 @@
         let pickableMeshes = [];       // 可拾取的 mesh 列表
         let meshToBone = new Map();    // visual mesh → bone
         let selectedBone = null;
-        let isDraggingBone = false;
-        let dragPrevMouse = new THREE.Vector2();
+        let initialBoneQuaternions = new Map(); // bone -> 初始四元数
         const raycaster = new THREE.Raycaster();
         const SEL_COLOR = new THREE.Color(0xffee44);
 
@@ -204,6 +291,18 @@
         const btnGray = document.getElementById('btnGray');
         const btnWire = document.getElementById('btnWire');
         const btnBone = document.getElementById('btnBone');
+        const joystickPanel = document.getElementById('joystickPanel');
+        const selectedBoneNameEl = document.getElementById('selectedBoneName');
+        const joystickRotate = document.getElementById('joystickRotate');
+        const joystickPitch = document.getElementById('joystickPitch');
+        const stickRotate = document.getElementById('stickRotate');
+        const stickPitch = document.getElementById('stickPitch');
+        const btnReset = document.getElementById('btnReset');
+        const fpsCountEl = document.getElementById('fpsCount');
+
+        // --- FPS 计算 ---
+        let frameCount = 0;
+        let lastFpsTime = performance.now();
 
         function showOverlay(msg) {
             overlayMsg.textContent = msg;
@@ -277,6 +376,44 @@
             btnBone.classList.toggle('active', showBone);
             if (skeletonHelper) skeletonHelper.visible = showBone;
             if (!showBone) deselectBone();
+        });
+
+        // --- 重置按钮 ---
+        btnReset.addEventListener('click', () => {
+            // 重置显示模式
+            setDisplayMode('normal');
+
+            // 重置骨骼姿态
+            if (initialBoneQuaternions.size > 0) {
+                for (const [bone, q] of initialBoneQuaternions) {
+                    bone.quaternion.copy(q);
+                }
+                updateBoneVisPositions();
+            }
+
+            // 取消选中骨骼
+            deselectBone();
+
+            // 隐藏骨骼
+            showBone = false;
+            btnBone.classList.remove('active');
+            if (skeletonHelper) skeletonHelper.visible = false;
+
+            // 重置摄像机位置
+            if (currentMesh) {
+                const box = new THREE.Box3().setFromObject(currentMesh);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+
+                controls.target.copy(center);
+                camera.position.set(
+                    center.x + maxDim * 0.3,
+                    center.y + maxDim * 0.2,
+                    center.z + maxDim * 1.5
+                );
+                controls.update();
+            }
         });
 
         // --- Octahedral bone geometry (unit length = 1) ---
@@ -457,6 +594,15 @@
                     c.material.color.copy(SEL_COLOR);
                 }
             });
+            // 显示骨骼名称和摇杆
+            selectedBoneNameEl.textContent = bone.name || '骨骼';
+            selectedBoneNameEl.classList.add('show');
+            joystickPanel.classList.add('show');
+            // 重置摇杆输入
+            joystickInput.rotateX = 0;
+            joystickInput.rotateY = 0;
+            joystickInput.pitchX = 0;
+            joystickInput.pitchY = 0;
         }
         function deselectBone() {
             if (!selectedBone || !skeletonHelper) return;
@@ -467,9 +613,19 @@
                     c.material.color.copy(c.userData._baseColor);
                 }
             });
+            // 隐藏骨骼名称和摇杆
+            selectedBoneNameEl.classList.remove('show');
+            joystickPanel.classList.remove('show');
+            // 重置摇杆位置和输入
+            joystickInput.rotateX = 0;
+            joystickInput.rotateY = 0;
+            joystickInput.pitchX = 0;
+            joystickInput.pitchY = 0;
+            resetJoystick(stickRotate);
+            resetJoystick(stickPitch);
         }
 
-        // --- 鼠标拾取 & 拖拽骨骼 ---
+        // --- 鼠标拾取骨骼 ---
         function getNDC(e) {
             return new THREE.Vector2(
                 (e.clientX / window.innerWidth) * 2 - 1,
@@ -488,48 +644,126 @@
             if (!bone) return;
 
             selectBone(bone);
-            isDraggingBone = true;
-            dragPrevMouse.set(e.clientX, e.clientY);
-            controls.enabled = false;        // 禁用轨道控制
-            renderer.domElement.setPointerCapture(e.pointerId);
             e.preventDefault();
         });
 
-        renderer.domElement.addEventListener('pointermove', (e) => {
-            if (!isDraggingBone || !selectedBone) return;
+        // --- 虚拟摇杆控制 ---
+        let joystickInput = { rotateX: 0, rotateY: 0, pitchX: 0, pitchY: 0 };
 
-            const dx = (e.clientX - dragPrevMouse.x) * 0.005;
-            const dy = (e.clientY - dragPrevMouse.y) * 0.005;
-            dragPrevMouse.set(e.clientX, e.clientY);
+        function resetJoystick(stick) {
+            stick.style.transform = 'translate(-50%, -50%)';
+        }
 
-            // 沿摄像机右方向和上方向旋转
-            const camRight = new THREE.Vector3();
-            const camUp = new THREE.Vector3();
-            camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
-            camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+        function setupJoystick(base, stick, inputKey) {
+            let isDragging = false;
+            const maxDist = 35;
 
-            const worldQ = new THREE.Quaternion()
-                .setFromAxisAngle(camUp, dx)
-                .multiply(new THREE.Quaternion().setFromAxisAngle(camRight, dy));
-
-            // 将世界旋转转换到骨骼父节点的本地空间
-            const parentWorldQ = new THREE.Quaternion();
-            if (selectedBone.parent) {
-                selectedBone.parent.getWorldQuaternion(parentWorldQ);
+            function handleStart(e) {
+                isDragging = true;
+                e.preventDefault();
             }
-            const parentInv = parentWorldQ.clone().invert();
-            const localQ = parentInv.clone().multiply(worldQ).multiply(parentWorldQ);
 
-            selectedBone.quaternion.premultiply(localQ);
-            updateBoneVisPositions();
-        });
+            function handleMove(e) {
+                if (!isDragging) return;
+                e.preventDefault();
 
-        renderer.domElement.addEventListener('pointerup', (e) => {
-            if (!isDraggingBone) return;
-            isDraggingBone = false;
-            controls.enabled = true;
-            renderer.domElement.releasePointerCapture(e.pointerId);
-        });
+                const rect = base.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                let clientX, clientY;
+                if (e.touches) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                let dx = clientX - centerX;
+                let dy = clientY - centerY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > maxDist) {
+                    dx = dx / dist * maxDist;
+                    dy = dy / dist * maxDist;
+                }
+
+                stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+                // 存储归一化值
+                if (inputKey === 'rotate') {
+                    joystickInput.rotateX = dx / maxDist;
+                    joystickInput.rotateY = dy / maxDist;
+                } else {
+                    joystickInput.pitchX = dx / maxDist;
+                    joystickInput.pitchY = dy / maxDist;
+                }
+            }
+
+            function handleEnd(e) {
+                if (!isDragging) return;
+                isDragging = false;
+                resetJoystick(stick);
+                if (inputKey === 'rotate') {
+                    joystickInput.rotateX = 0;
+                    joystickInput.rotateY = 0;
+                } else {
+                    joystickInput.pitchX = 0;
+                    joystickInput.pitchY = 0;
+                }
+            }
+
+            base.addEventListener('mousedown', handleStart);
+            base.addEventListener('touchstart', handleStart, { passive: false });
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('touchmove', handleMove, { passive: false });
+            window.addEventListener('mouseup', handleEnd);
+            window.addEventListener('touchend', handleEnd);
+        }
+
+        setupJoystick(joystickRotate, stickRotate, 'rotate');
+        setupJoystick(joystickPitch, stickPitch, 'pitch');
+
+        // 在渲染循环中应用摇杆输入
+        function applyJoystickInput() {
+            if (!selectedBone) return;
+
+            const rotSpeed = 0.02;
+            const { rotateX, rotateY, pitchX, pitchY } = joystickInput;
+
+            if (Math.abs(rotateX) > 0.01 || Math.abs(rotateY) > 0.01) {
+                const worldQ = new THREE.Quaternion()
+                    .setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotateX * rotSpeed)
+                    .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), rotateY * rotSpeed));
+
+                const parentWorldQ = new THREE.Quaternion();
+                if (selectedBone.parent) {
+                    selectedBone.parent.getWorldQuaternion(parentWorldQ);
+                }
+                const parentInv = parentWorldQ.clone().invert();
+                const localQ = parentInv.clone().multiply(worldQ).multiply(parentWorldQ);
+
+                selectedBone.quaternion.premultiply(localQ);
+                updateBoneVisPositions();
+            }
+
+            if (Math.abs(pitchX) > 0.01 || Math.abs(pitchY) > 0.01) {
+                const worldQ = new THREE.Quaternion()
+                    .setFromAxisAngle(new THREE.Vector3(0, 0, 1), pitchX * rotSpeed)
+                    .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchY * rotSpeed));
+
+                const parentWorldQ = new THREE.Quaternion();
+                if (selectedBone.parent) {
+                    selectedBone.parent.getWorldQuaternion(parentWorldQ);
+                }
+                const parentInv = parentWorldQ.clone().invert();
+                const localQ = parentInv.clone().multiply(worldQ).multiply(parentWorldQ);
+
+                selectedBone.quaternion.premultiply(localQ);
+                updateBoneVisPositions();
+            }
+        }
 
         // --- Folder selection ---
         folderInput.addEventListener('change', (e) => {
@@ -602,8 +836,11 @@
                     boneSegEntries = [];
                     pickableMeshes = [];
                     meshToBone.clear();
+                    initialBoneQuaternions.clear();
                     selectedBone = null;
-                    isDraggingBone = false;
+                    // 隐藏摇杆
+                    selectedBoneNameEl.classList.remove('show');
+                    joystickPanel.classList.remove('show');
                 }
                 currentMesh.traverse((child) => {
                     if (child.geometry) child.geometry.dispose();
@@ -710,6 +947,14 @@
                     skeletonHelper.visible = showBone;
                     scene.add(skeletonHelper);
 
+                    // 保存骨骼初始四元数
+                    initialBoneQuaternions.clear();
+                    mesh.traverse(c => {
+                        if (c.isBone) {
+                            initialBoneQuaternions.set(c, c.quaternion.clone());
+                        }
+                    });
+
                     // Count faces & vertices
                     let faces = 0, vertices = 0;
                     mesh.traverse((child) => {
@@ -756,7 +1001,19 @@
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+            applyJoystickInput();
             renderer.render(scene, camera);
+
+            // FPS 计算
+            frameCount++;
+            const now = performance.now();
+            const delta = now - lastFpsTime;
+            if (delta >= 1000) {
+                const fps = Math.round(frameCount * 1000 / delta);
+                fpsCountEl.textContent = fps;
+                frameCount = 0;
+                lastFpsTime = now;
+            }
         }
         animate();
 
