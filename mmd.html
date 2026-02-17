@@ -167,6 +167,80 @@
             z-index: 150;
         }
         #selectedBoneName.show { display: block; }
+
+        /* 部件列表面板 */
+        #partsPanel {
+            position: fixed;
+            top: 56px;
+            right: 16px;
+            width: 280px;
+            max-height: calc(100vh - 80px);
+            background: rgba(22, 33, 62, 0.95);
+            border: 1px solid #3a4a6a;
+            border-radius: 8px;
+            z-index: 120;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #partsPanel.show { display: flex; }
+        #partsPanelHeader {
+            padding: 12px 14px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid #3a4a6a;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #partsPanelClose {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 4px;
+        }
+        #partsPanelClose:hover { color: #fff; }
+        #partsList {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        .part-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 14px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .part-item:hover { background: rgba(255, 255, 255, 0.05); }
+        .part-item input[type="checkbox"] {
+            margin-right: 10px;
+            width: 16px;
+            height: 16px;
+            accent-color: #3a86ff;
+        }
+        .part-item .part-name {
+            flex: 1;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .part-item .part-faces {
+            font-size: 11px;
+            color: #888;
+            margin-left: 8px;
+        }
+        .part-item .part-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
         canvas { display: block; }
     </style>
 </head>
@@ -188,6 +262,7 @@
         <div class="toggle-group">
             <button id="btnBone">骨骼</button>
         </div>
+        <button id="btnParts" class="toggle-group" style="background: #16213e; color: #aaa; border: 1px solid #555; border-radius: 5px; font-size: 13px; cursor: pointer;">部件</button>
         <button id="btnReset" class="reset-btn">重置</button>
         <div id="info">
             面数: <span id="faceCount">-</span> &nbsp;|&nbsp;
@@ -211,6 +286,13 @@
                 <div class="joystick-stick" id="stickPitch"></div>
             </div>
         </div>
+    </div>
+    <div id="partsPanel">
+        <div id="partsPanelHeader">
+            <span>模型部件</span>
+            <button id="partsPanelClose">&times;</button>
+        </div>
+        <div id="partsList"></div>
     </div>
     <script type="importmap">
     {
@@ -268,6 +350,7 @@
         let fileMap = new Map();        // relativePath -> blobURL
         let fileNameMap = new Map();    // filename (lowercase) -> blobURL (last wins)
         let pmxFiles = [];
+        let meshParts = [];             // { mesh, name, visible, faceCount }
 
         // 骨骼交互状态
         let boneJointEntries = [];     // { bone, sphere }
@@ -299,6 +382,10 @@
         const stickPitch = document.getElementById('stickPitch');
         const btnReset = document.getElementById('btnReset');
         const fpsCountEl = document.getElementById('fpsCount');
+        const btnParts = document.getElementById('btnParts');
+        const partsPanel = document.getElementById('partsPanel');
+        const partsPanelClose = document.getElementById('partsPanelClose');
+        const partsList = document.getElementById('partsList');
 
         // --- FPS 计算 ---
         let frameCount = 0;
@@ -331,7 +418,18 @@
 
         function applyDisplayMode() {
             if (!currentMesh || !originalMaterials) return;
-            let colorIdx = 0;
+
+            // 按材质索引构建查找表
+            const colorMap = new Map(); // mesh -> materialIndex -> colorIdx
+            meshParts.forEach(p => {
+                if (!colorMap.has(p.mesh)) colorMap.set(p.mesh, new Map());
+                if (p.materialIndex !== null) {
+                    colorMap.get(p.mesh).set(p.materialIndex, p.colorIdx);
+                } else {
+                    colorMap.get(p.mesh).set('__single__', p.colorIdx);
+                }
+            });
+
             currentMesh.traverse((child) => {
                 if (!child.isMesh) return;
                 const orig = originalMaterials.get(child);
@@ -346,23 +444,40 @@
                             color: 0x888888,
                             side: m.side,
                             skinning: true,
+                            transparent: true,
+                            opacity: 1,
                         });
                         return gray;
                     });
                     if (!Array.isArray(orig)) child.material = child.material[0];
                 } else if (displayMode === 'wire') {
                     const mats = Array.isArray(orig) ? orig : [orig];
-                    child.material = mats.map(m => {
-                        const c = WIRE_PALETTE[colorIdx % WIRE_PALETTE.length];
-                        colorIdx++;
+                    const meshColors = colorMap.get(child);
+                    child.material = mats.map((m, i) => {
+                        let c;
+                        if (meshColors) {
+                            const idx = meshColors.get(i) || meshColors.get('__single__');
+                            c = WIRE_PALETTE[idx % WIRE_PALETTE.length];
+                        } else {
+                            c = WIRE_PALETTE[i % WIRE_PALETTE.length];
+                        }
                         return new THREE.MeshBasicMaterial({
                             color: c,
                             wireframe: true,
                             side: m.side,
                             skinning: true,
+                            transparent: true,
+                            opacity: 1,
                         });
                     });
                     if (!Array.isArray(orig)) child.material = child.material[0];
+                }
+            });
+
+            // 重新应用部件可见性
+            meshParts.forEach(p => {
+                if (!p.visible) {
+                    setPartVisibility(p, false);
                 }
             });
         }
@@ -378,10 +493,104 @@
             if (!showBone) deselectBone();
         });
 
+        // --- 部件面板 ---
+        btnParts.addEventListener('click', () => {
+            partsPanel.classList.toggle('show');
+        });
+        partsPanelClose.addEventListener('click', () => {
+            partsPanel.classList.remove('show');
+        });
+
+        function updatePartsList() {
+            partsList.innerHTML = '';
+            if (meshParts.length === 0) {
+                partsList.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无模型</div>';
+                return;
+            }
+
+            // 添加"全部显示/隐藏"按钮
+            const allItem = document.createElement('div');
+            allItem.className = 'part-item';
+            allItem.innerHTML = `
+                <input type="checkbox" id="part-all" ${meshParts.every(p => p.visible) ? 'checked' : ''}>
+                <span class="part-name" style="font-weight: bold;">全部</span>
+            `;
+            allItem.addEventListener('click', (e) => {
+                if (e.target.id === 'part-all') return;
+                const cb = allItem.querySelector('#part-all');
+                cb.checked = !cb.checked;
+                setAllPartsVisibility(cb.checked);
+            });
+            allItem.querySelector('#part-all').addEventListener('change', (e) => {
+                setAllPartsVisibility(e.target.checked);
+            });
+            partsList.appendChild(allItem);
+
+            // 各个部件
+            meshParts.forEach((part, idx) => {
+                const item = document.createElement('div');
+                item.className = 'part-item';
+                const faceStr = part.faceCount > 0 ? `(${part.faceCount.toLocaleString()}面)` : '';
+                const colorHex = '#' + WIRE_PALETTE[part.colorIdx % WIRE_PALETTE.length].toString(16).padStart(6, '0');
+                item.innerHTML = `
+                    <input type="checkbox" id="part-${idx}" ${part.visible ? 'checked' : ''}>
+                    <div class="part-color" style="background: ${colorHex}"></div>
+                    <span class="part-name" title="${part.name}">${part.name}</span>
+                    <span class="part-faces">${faceStr}</span>
+                `;
+                item.addEventListener('click', (e) => {
+                    if (e.target.id === `part-${idx}` || e.target.classList.contains('part-color')) return;
+                    const cb = item.querySelector(`#part-${idx}`);
+                    cb.checked = !cb.checked;
+                    setPartVisibility(part, cb.checked);
+                    updatePartsList();
+                });
+                item.querySelector(`#part-${idx}`).addEventListener('change', (e) => {
+                    setPartVisibility(part, e.target.checked);
+                    updatePartsList();
+                });
+                partsList.appendChild(item);
+            });
+        }
+
+        function setPartVisibility(part, visible) {
+            part.visible = visible;
+            if (part.materialIndex === null) {
+                // 单材质 mesh，直接控制 mesh 可见性
+                part.mesh.visible = visible;
+            } else {
+                // 多材质 mesh，控制特定材质的透明度
+                const mats = Array.isArray(part.mesh.material) ? part.mesh.material : [part.mesh.material];
+                const mat = mats[part.materialIndex];
+                if (mat) {
+                    if (visible) {
+                        mat.opacity = 1;
+                    } else {
+                        mat.opacity = 0;
+                        mat.transparent = true;
+                    }
+                }
+                // 检查是否所有材质都隐藏，若是则隐藏整个 mesh
+                const allHidden = meshParts
+                    .filter(p => p.mesh === part.mesh)
+                    .every(p => !p.visible);
+                part.mesh.visible = !allHidden;
+            }
+        }
+
+        function setAllPartsVisibility(visible) {
+            meshParts.forEach(p => setPartVisibility(p, visible));
+            updatePartsList();
+        }
+
         // --- 重置按钮 ---
         btnReset.addEventListener('click', () => {
             // 重置显示模式
             setDisplayMode('normal');
+
+            // 重置部件可见性
+            meshParts.forEach(p => setPartVisibility(p, true));
+            updatePartsList();
 
             // 重置骨骼姿态
             if (initialBoneQuaternions.size > 0) {
@@ -842,6 +1051,9 @@
                     selectedBoneNameEl.classList.remove('show');
                     joystickPanel.classList.remove('show');
                 }
+                // 清空部件列表
+                meshParts = [];
+                updatePartsList();
                 currentMesh.traverse((child) => {
                     if (child.geometry) child.geometry.dispose();
                     if (child.material) {
@@ -966,6 +1178,67 @@
                     });
                     faceCountEl.textContent = Math.floor(faces).toLocaleString();
                     vertexCountEl.textContent = vertices.toLocaleString();
+
+                    // 收集部件信息 - 按材质区分
+                    meshParts = [];
+                    let globalMatIdx = 0;
+                    mesh.traverse((child) => {
+                        if (!child.isMesh) return;
+                        const geo = child.geometry;
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+
+                        if (mats.length <= 1) {
+                            // 单材质，直接作为一个部件
+                            const faceCount = geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3;
+                            let name = child.name || '未命名';
+                            if (mats[0] && mats[0].name) name = mats[0].name;
+                            meshParts.push({
+                                mesh: child,
+                                materialIndex: null,
+                                name: name,
+                                visible: child.visible,
+                                faceCount: Math.floor(faceCount),
+                                colorIdx: globalMatIdx++
+                            });
+                        } else {
+                            // 多材质，按材质拆分
+                            const index = geo.index;
+                            const posCount = geo.attributes.position.count;
+
+                            // 计算每个材质对应的三角形数量
+                            if (geo.groups && geo.groups.length > 0) {
+                                // 有 groups 信息
+                                geo.groups.forEach((group, gi) => {
+                                    const faceCount = group.count / 3;
+                                    const mat = mats[group.materialIndex] || mats[0];
+                                    const name = mat.name || `材质${gi + 1}`;
+                                    meshParts.push({
+                                        mesh: child,
+                                        materialIndex: group.materialIndex,
+                                        name: name,
+                                        visible: child.visible,
+                                        faceCount: Math.floor(faceCount),
+                                        colorIdx: globalMatIdx++
+                                    });
+                                });
+                            } else {
+                                // 没有 groups，按材质数量均分
+                                const facesPerMat = (index ? index.count / 3 : posCount / 3) / mats.length;
+                                mats.forEach((mat, gi) => {
+                                    const name = mat.name || `材质${gi + 1}`;
+                                    meshParts.push({
+                                        mesh: child,
+                                        materialIndex: gi,
+                                        name: name,
+                                        visible: child.visible,
+                                        faceCount: Math.floor(facesPerMat),
+                                        colorIdx: globalMatIdx++
+                                    });
+                                });
+                            }
+                        }
+                    });
+                    updatePartsList();
 
                     // Auto-frame camera
                     const box = new THREE.Box3().setFromObject(mesh);
