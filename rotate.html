@@ -444,7 +444,7 @@
       if (dither === 'bayer') {
         dither = `bayer:bayer_scale=${opts.bayerScale}`;
       }
-      return `split[split1][split2];[split1]palettegen=max_colors=${opts.maxColors}:reserve_transparent=on:stats_mode=diff[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off:alpha_threshold=1`;
+      return `split[split1][split2];[split1]palettegen=max_colors=${opts.maxColors}:reserve_transparent=off:stats_mode=diff[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off:alpha_threshold=1`;
     }
 
     async function loadFFmpeg(setProgress) {
@@ -492,12 +492,14 @@
 
         for (let i = 0; i < opts.frames; i++) {
           const t = i / opts.frames;
-          renderFrame(fctx, prepared, opts.width, opts.height, t, false);
+          renderFrame(fctx, prepared, opts.width, opts.height, t, true);
 
           const finalCanvas = document.createElement('canvas');
           finalCanvas.width = opts.width;
           finalCanvas.height = opts.height - opts.cropBottom;
           const finalCtx = finalCanvas.getContext('2d', { alpha: true });
+          finalCtx.fillStyle = '#ffffff';
+          finalCtx.fillRect(0, 0, opts.width, opts.height - opts.cropBottom);
           finalCtx.drawImage(frameCanvas, 0, 0, opts.width, opts.height - opts.cropBottom, 0, 0, opts.width, opts.height - opts.cropBottom);
 
           const blob = await canvasToPngBlob(finalCanvas);
