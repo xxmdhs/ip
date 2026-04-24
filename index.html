@@ -1,95 +1,354 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="zh-CN">
 <head>
-	<meta charset="UTF-8">
-	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<meta name="viewport" content="width=device-width,initial-scale=1">
-	<title>本地 ip 地址查询</title>
-	<script src="./wasm_exec.js"></script>
-	<link rel="stylesheet" href="https://static.xmdhs.com/style.css">
-	<script>
-		if (window.fetch == null || window.WebAssembly == null) {
-			window.onload = function () {
-				document.getElementById("ipInfo").innerHTML = "请更新浏览器，<a href=\"https://www.google.cn/intl/zh-CN/chrome/\">https://www.google.cn/intl/zh-CN/chrome/</a>";
-			}
-		}
-	</script>
-	<script>
-		async function getDb() {
-			let f = await fetch("https://cdn.jsdelivr.net/gh/lionsoul2014/ip2region/data/ip2region.xdb")
-			if (f.status != 200) {
-				throw new Error(f.statusText)
-			}
-			let b = await f.arrayBuffer()
-			return new Uint8Array(b);
-		}
-		let go;
-		try {
-			go = new Go();
-		} catch (error) {
-			window.onload = function () {
-				document.getElementById("ipInfo").innerHTML = "请更新浏览器，<a href=\"https://www.google.cn/intl/zh-CN/chrome/\">https://www.google.cn/intl/zh-CN/chrome/</a>";
-			}
-		}
-		async function fetchAndInstantiate() {
-			const response = await fetch("./ip.wasm");
-			const buffer = await response.arrayBuffer();
-			const obj = await WebAssembly.instantiate(buffer, go.importObject)
-			go.run(obj.instance);
-			let b;
-			try {
-				b = await getDb();
-			} catch (error) {
-				document.getElementById("ipInfo").innerText = "获取 ip 数据库失败\n" + error;
-				console.warn(error);
-				return;
-			}
-			setDB(b);
-			document.getElementById('ip').removeAttribute("readOnly");
-			document.getElementById("ipInfo").innerText = "";
-		}
-		fetchAndInstantiate();
-		function Form() {
-			let ip = document.querySelector("#ip").value.toString();
-			if (ip == "") {
-				return;
-			}
-			getIp(ip, (v) => {
-				let s = v.Country + v.Province + v.City + v.ISP
-				s = s.replace(/0/g, "")
-				document.getElementById("ipInfo").innerText = s;
-			})
-			return false;
-		}
-		window.addEventListener("load", () => {
-			let f = document.getElementById("getip");
-			f.addEventListener("submit", function (event) {
-				event.preventDefault();
-				Form();
-			});
-		})
-	</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工具箱</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #fafafa;
+            --card: #ffffff;
+            --text: #1a1a1a;
+            --text-secondary: #666666;
+            --border: #e5e5e5;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 12px rgba(0,0,0,0.1);
+            --radius: 12px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0a0a0a;
+                --card: #141414;
+                --text: #fafafa;
+                --text-secondary: #a3a3a3;
+                --border: #262626;
+                --accent: #3b82f6;
+                --accent-hover: #60a5fa;
+                --shadow: 0 1px 3px rgba(0,0,0,0.3);
+                --shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        header {
+            padding: 4rem 1.5rem 2rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .category {
+            margin-bottom: 3rem;
+        }
+
+        .category-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            padding-left: 0.25rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1rem;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--accent);
+        }
+
+        .card-title {
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-desc {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .icon {
+            width: 20px;
+            height: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.8125rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                padding: 2.5rem 1rem 1.5rem;
+            }
+
+            main {
+                padding: 1.5rem 1rem;
+            }
+        }
+    </style>
 </head>
-
 <body>
-	<div class="container-lg px-3 my-5 markdown-body">
-		<h1>本地 ip 地址查询</h1>
-		<form id="getip">
-			<input type="search" id="ip" placeholder="1.1.1.1" name="ip" readonly="readonly" title="ipv4"
-				pattern="^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$">
-			<input type="submit" value="查询">
-		</form>
-		<br>
-		<div id="ipInfo">加载 ip 数据库中...</div>
-		<hr>
-		<details>
-			<summary>说明</summary>
-			<p>所有查询均在本地进行，不会发送任何请求到其他地方。</p>
-			<p>数据库来自 <a href="https://github.com/lionsoul2014/ip2region">https://github.com/lionsoul2014/ip2region</a>
-			</p>
-		</details>
-	</div>
-</body>
+    <header>
+        <h1>工具箱</h1>
+        <p class="subtitle">汇集实用工具，简洁高效</p>
+    </header>
 
+    <main>
+        <section class="category">
+            <h2 class="category-title">加密与安全</h2>
+            <div class="grid">
+                <a href="./argon2.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🔐</span>
+                        Argon2 哈希
+                    </div>
+                    <div class="card-desc">在线 Argon2 密码哈希计算工具</div>
+                </a>
+                <a href="./scrypt.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🔑</span>
+                        Scrypt 哈希
+                    </div>
+                    <div class="card-desc">在线 Scrypt 密码哈希计算工具</div>
+                </a>
+                <a href="./ed25519.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">📝</span>
+                        Ed25519 签名
+                    </div>
+                    <div class="card-desc">Ed25519 数字签名生成与验证</div>
+                </a>
+            </div>
+        </section>
+
+        <section class="category">
+            <h2 class="category-title">网络与查询</h2>
+            <div class="grid">
+                <a href="./ip.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🌐</span>
+                        IP 地址查询
+                    </div>
+                    <div class="card-desc">获取本地及公网 IP 地址信息</div>
+                </a>
+                <a href="./geo.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">📍</span>
+                        GeoIP 查询
+                    </div>
+                    <div class="card-desc">IP 地理位置查询工具</div>
+                </a>
+                <a href="./qq.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🐧</span>
+                        QQ 查询
+                    </div>
+                    <div class="card-desc">QQ 信息查询工具</div>
+                </a>
+                <a href="./bil2dp.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">📺</span>
+                        Bilibili 工具
+                    </div>
+                    <div class="card-desc">Bilibili 相关转换工具</div>
+                </a>
+            </div>
+        </section>
+
+        <section class="category">
+            <h2 class="category-title">开发工具</h2>
+            <div class="grid">
+                <a href="./json.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">📋</span>
+                        JSON 工具
+                    </div>
+                    <div class="card-desc">JSON 格式化与处理工具</div>
+                </a>
+                <a href="./reg.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🔍</span>
+                        正则测试
+                    </div>
+                    <div class="card-desc">正则表达式在线测试工具</div>
+                </a>
+                <a href="./url.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🔗</span>
+                        URL 解析器
+                    </div>
+                    <div class="card-desc">URL 参数解析与处理</div>
+                </a>
+                <a href="./drm.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🔧</span>
+                        URL 参数解析
+                    </div>
+                    <div class="card-desc">URL 参数解析工具</div>
+                </a>
+            </div>
+        </section>
+
+        <section class="category">
+            <h2 class="category-title">媒体与文件</h2>
+            <div class="grid">
+                <a href="./capture.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">📹</span>
+                        屏幕录制
+                    </div>
+                    <div class="card-desc">浏览器屏幕录制工具</div>
+                </a>
+                <a href="./tts.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🔊</span>
+                        文本转语音
+                    </div>
+                    <div class="card-desc">TTS 语音合成播放器</div>
+                </a>
+                <a href="./jpeg.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🖼️</span>
+                        JPEG 质量查看
+                    </div>
+                    <div class="card-desc">JPEG 图片质量分析工具</div>
+                </a>
+                <a href="./rotate.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🔄</span>
+                        3D 旋转 GIF
+                    </div>
+                    <div class="card-desc">单图竖轴旋转并导出透明背景 GIF</div>
+                </a>
+                <a href="./mmd.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🎭</span>
+                        PMX 模型查看器
+                    </div>
+                    <div class="card-desc">MMD 模型在线查看工具</div>
+                </a>
+            </div>
+        </section>
+
+        <section class="category">
+            <h2 class="category-title">其他工具</h2>
+            <div class="grid">
+                <a href="./paste.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">📎</span>
+                        剪贴板读取
+                    </div>
+                    <div class="card-desc">读取粘贴板原始内容</div>
+                </a>
+                <a href="./comment.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">💬</span>
+                        评论测试
+                    </div>
+                    <div class="card-desc">评论系统功能测试</div>
+                </a>
+                <a href="./pinfen.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">⭐</span>
+                        评分系统
+                    </div>
+                    <div class="card-desc">评分功能演示与测试</div>
+                </a>
+                <a href="./conver.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">🔄</span>
+                        莫娜转原魔
+                    </div>
+                    <div class="card-desc">原神角色转换工具</div>
+                </a>
+                <a href="./ubb.html" class="card">
+                    <div class="card-title">
+                        <span class="icon">📄</span>
+                        UBB 查看
+                    </div>
+                    <div class="card-desc">UBB 代码解析与预览</div>
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>本地工具集 · 离线可用</p>
+    </footer>
+</body>
 </html>

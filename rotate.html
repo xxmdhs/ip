@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>单图 3D 旋转 GIF 生成器</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f7f7f8;
+      color: #1f2328;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 24px auto;
+      padding: 0 16px 40px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 16px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    label {
+      font-size: 13px;
+      color: #374151;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    input[type="number"],
+    input[type="range"],
+    select,
+    input[type="file"],
+    button {
+      font-size: 14px;
+    }
+
+    input[type="number"],
+    select {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 8px 10px;
+      outline: none;
+      background: #fff;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      border: 1px solid #2563eb;
+      background: #2563eb;
+      color: #fff;
+      border-radius: 8px;
+      padding: 9px 14px;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      border-color: #9ca3af;
+      background: #fff;
+      color: #111827;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    canvas {
+      width: min(100%, 520px);
+      height: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      image-rendering: auto;
+    }
+
+    progress {
+      width: 100%;
+      height: 14px;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .error {
+      color: #dc2626;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>单图竖轴 3D 旋转（ffmpeg.wasm 导出 GIF）</h1>
+
+    <div class="card grid">
+      <label>
+        图片文件
+        <input id="fileInput" type="file" accept="image/*" />
+      </label>
+
+      <label>
+        蒙版模式
+        <select id="maskModeInput">
+          <option value="none">无蒙版</option>
+          <option value="circle">圆形蒙版</option>
+          <option value="rounded">圆角矩形蒙版</option>
+          <option value="custom">自定义蒙版图</option>
+        </select>
+      </label>
+
+      <label>
+        蒙版图片（仅自定义）
+        <input id="maskFileInput" type="file" accept="image/*" disabled />
+      </label>
+
+      <label>
+        输出宽度（px，留空=原图）
+        <input id="widthInput" type="number" min="16" max="4096" placeholder="自动" />
+      </label>
+
+      <label>
+        输出高度（px，留空=原图）
+        <input id="heightInput" type="number" min="16" max="4096" placeholder="自动" />
+      </label>
+
+      <label>
+        帧数
+        <input id="framesInput" type="number" min="12" max="240" value="48" />
+      </label>
+
+      <label>
+        帧率（fps）
+        <input id="fpsInput" type="number" min="1" max="60" value="24" />
+      </label>
+
+      <label>
+        Dither
+        <select id="ditherInput">
+          <option value="floyd_steinberg">floyd_steinberg</option>
+          <option value="bayer">bayer</option>
+          <option value="sierra2_4a">sierra2_4a</option>
+          <option value="none">none</option>
+        </select>
+      </label>
+
+      <label>
+        max_colors
+        <input id="maxColorsInput" type="number" min="2" max="256" value="256" />
+      </label>
+
+      <label>
+        bayer_scale（仅 bayer）
+        <input id="bayerScaleInput" type="number" min="0" max="5" value="4" />
+      </label>
+
+      <label>
+        底部裁剪（px）
+        <input id="cropBottomInput" type="number" min="0" max="200" value="0" />
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom: 10px;">
+        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;">
+          <input id="whiteBgInput" type="checkbox" />
+          预览白底（仅预览，不影响导出）
+        </label>
+        <button id="renderBtn" class="secondary">重新渲染预览</button>
+        <button id="exportBtn">导出 GIF</button>
+      </div>
+
+      <canvas id="preview" width="420" height="420"></canvas>
+      <div style="margin-top: 10px;"><progress id="progress" value="0" max="100"></progress></div>
+      <div id="status" class="muted" style="margin-top: 8px;">等待图片…</div>
+      <div id="error" class="error" style="margin-top: 4px;"></div>
+    </div>
+
+    <div class="muted">
+      说明：导出时会按你的参数在浏览器内先生成帧，再通过 ffmpeg.wasm 使用
+      split/palettegen/paletteuse 过滤链编码 GIF。
+    </div>
+  </div>
+
+  <script type="module">
+    const { FFmpeg } = await import('./static/ffmpeg/index.js')
+    const { toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.2/dist/esm')
+
+    const fileInput = document.getElementById('fileInput');
+    const maskModeInput = document.getElementById('maskModeInput');
+    const maskFileInput = document.getElementById('maskFileInput');
+    const widthInput = document.getElementById('widthInput');
+    const heightInput = document.getElementById('heightInput');
+    const framesInput = document.getElementById('framesInput');
+    const fpsInput = document.getElementById('fpsInput');
+    const ditherInput = document.getElementById('ditherInput');
+    const maxColorsInput = document.getElementById('maxColorsInput');
+    const bayerScaleInput = document.getElementById('bayerScaleInput');
+    const cropBottomInput = document.getElementById('cropBottomInput');
+    const whiteBgInput = document.getElementById('whiteBgInput');
+    const renderBtn = document.getElementById('renderBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const preview = document.getElementById('preview');
+    const progress = document.getElementById('progress');
+    const statusEl = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+
+    const pctx = preview.getContext('2d', { alpha: true });
+
+    let sourceImage = null;
+    let maskImage = null;
+    let rafId = 0;
+    let startTs = 0;
+
+    function setError(msg = '') {
+      errorEl.textContent = msg;
+    }
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+    }
+
+    function clampInt(v, min, max, fallback) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(min, Math.min(max, Math.round(n)));
+    }
+
+    function getCanvasSizeFromSource() {
+      const sw = sourceImage?.naturalWidth || sourceImage?.width || 420;
+      const sh = sourceImage?.naturalHeight || sourceImage?.height || 420;
+      const wRaw = Number(widthInput.value);
+      const hRaw = Number(heightInput.value);
+
+      const w = Number.isFinite(wRaw) && wRaw > 0 ? clampInt(wRaw, 16, 4096, sw) : sw;
+      const h = Number.isFinite(hRaw) && hRaw > 0 ? clampInt(hRaw, 16, 4096, sh) : sh;
+      return { width: w, height: h };
+    }
+
+    function getOptions() {
+      const size = getCanvasSizeFromSource();
+      return {
+        width: size.width,
+        height: size.height,
+        frames: clampInt(framesInput.value, 12, 240, 48),
+        fps: clampInt(fpsInput.value, 1, 60, 24),
+        dither: ditherInput.value,
+        maxColors: clampInt(maxColorsInput.value, 2, 256, 256),
+        bayerScale: clampInt(bayerScaleInput.value, 0, 5, 4),
+        cropBottom: clampInt(cropBottomInput.value, 0, 200, 0),
+        whiteBg: !!whiteBgInput.checked,
+        maskMode: maskModeInput.value,
+      };
+    }
+
+    function drawRoundedRectPath(ctx, x, y, w, h, r) {
+      const rr = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rr);
+      ctx.arcTo(x + w, y + h, x, y + h, rr);
+      ctx.arcTo(x, y + h, x, y, rr);
+      ctx.arcTo(x, y, x + w, y, rr);
+      ctx.closePath();
+    }
+
+    function drawImageContain(ctx, img, boxW, boxH) {
+      const iw = img.naturalWidth || img.width;
+      const ih = img.naturalHeight || img.height;
+      if (!iw || !ih) return;
+      const scale = Math.min(boxW / iw, boxH / ih);
+      const w = Math.max(1, Math.round(iw * scale));
+      const h = Math.max(1, Math.round(ih * scale));
+      const x = Math.round((boxW - w) / 2);
+      const y = Math.round((boxH - h) / 2);
+      ctx.drawImage(img, x, y, w, h);
+    }
+
+    function applyMaskToPrepared(preparedCanvas, mode, customMaskImage) {
+      if (mode === 'none') return;
+
+      const ctx = preparedCanvas.getContext('2d');
+      const w = preparedCanvas.width;
+      const h = preparedCanvas.height;
+
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = w;
+      maskCanvas.height = h;
+      const mctx = maskCanvas.getContext('2d');
+
+      if (mode === 'circle') {
+        const r = Math.min(w, h) / 2;
+        mctx.beginPath();
+        mctx.arc(w / 2, h / 2, r, 0, Math.PI * 2);
+        mctx.fillStyle = '#000';
+        mctx.fill();
+      } else if (mode === 'rounded') {
+        const pad = Math.round(Math.min(w, h) * 0.03);
+        drawRoundedRectPath(mctx, pad, pad, w - pad * 2, h - pad * 2, Math.round(Math.min(w, h) * 0.2));
+        mctx.fillStyle = '#000';
+        mctx.fill();
+      } else if (mode === 'custom' && customMaskImage) {
+        drawImageContain(mctx, customMaskImage, w, h);
+      } else {
+        return;
+      }
+
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.drawImage(maskCanvas, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    function prepareImageToFit(img, canvasWidth, canvasHeight, maskMode, customMaskImage) {
+      const maxW = Math.max(1, canvasWidth);
+      const maxH = Math.max(1, canvasHeight);
+      const scale = Math.min(maxW / img.width, maxH / img.height);
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      applyMaskToPrepared(c, maskMode, customMaskImage);
+      return c;
+    }
+
+    function renderFrame(targetCtx, prepared, canvasWidth, canvasHeight, t, whiteBg) {
+      targetCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+      if (whiteBg) {
+        targetCtx.fillStyle = '#ffffff';
+        targetCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
+
+      const theta = t * Math.PI * 2;
+      const c = Math.cos(theta);
+      const widthScale = Math.max(0.08, Math.abs(c));
+      const w = Math.max(1, Math.round(prepared.width * widthScale));
+      const h = prepared.height;
+      const shade = 0.45 + 0.55 * Math.abs(c);
+
+      const tmp = document.createElement('canvas');
+      tmp.width = w;
+      tmp.height = h;
+      const tctx = tmp.getContext('2d');
+
+      tctx.filter = `brightness(${Math.round(shade * 100)}%)`;
+      if (c < 0) {
+        tctx.translate(w, 0);
+        tctx.scale(-1, 1);
+      }
+      tctx.drawImage(prepared, 0, 0, w, h);
+
+      const x = Math.round((canvasWidth - w) / 2);
+      const y = Math.round((canvasHeight - h) / 2);
+      targetCtx.drawImage(tmp, x, y);
+    }
+
+    function startPreviewLoop() {
+      cancelAnimationFrame(rafId);
+      if (!sourceImage) {
+        pctx.clearRect(0, 0, preview.width, preview.height);
+        return;
+      }
+
+      const opts = getOptions();
+      preview.width = opts.width;
+      preview.height = opts.height;
+      const prepared = prepareImageToFit(sourceImage, opts.width, opts.height, opts.maskMode, maskImage);
+      startTs = performance.now();
+
+      const loop = (ts) => {
+        const elapsed = (ts - startTs) / 1000;
+        const t = (elapsed * opts.fps / opts.frames) % 1;
+        renderFrame(pctx, prepared, opts.width, opts.height, t, opts.whiteBg);
+        rafId = requestAnimationFrame(loop);
+      };
+
+      rafId = requestAnimationFrame(loop);
+      setStatus('预览中。');
+    }
+
+    async function fileToImage(file) {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = new Image();
+        img.decoding = 'async';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = url;
+        });
+        return img;
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function canvasToPngBlob(canvas) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error('帧导出失败'));
+          resolve(blob);
+        }, 'image/png');
+      });
+    }
+
+    function buildPaletteFilter(opts) {
+      let dither = opts.dither;
+      if (dither === 'bayer') {
+        dither = `bayer:bayer_scale=${opts.bayerScale}`;
+      }
+      return `split[split1][split2];[split1]palettegen=max_colors=${opts.maxColors}:reserve_transparent=on:stats_mode=diff[pal];[split2][pal]paletteuse=dither=${dither}:diff_mode=rectangle:new=off:alpha_threshold=1`;
+    }
+
+    async function loadFFmpeg(setProgress) {
+      const ffmpeg = new FFmpeg();
+      ffmpeg.on('progress', ({ progress }) => {
+        if (typeof progress === 'number' && Number.isFinite(progress)) {
+          setProgress(Math.max(0, Math.min(100, Math.round(progress * 100))));
+        }
+      });
+
+      const baseURL = 'https://unpkg.com/@ffmpeg/core/dist/esm'
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      return ffmpeg;
+    }
+
+    async function exportGif() {
+      setError('');
+      if (!sourceImage) {
+        setError('请先选择一张图片。');
+        return;
+      }
+
+      const opts = getOptions();
+      if (opts.cropBottom >= opts.height - 2) {
+        setError('底部裁剪值过大，请调小。');
+        return;
+      }
+
+      exportBtn.disabled = true;
+      renderBtn.disabled = true;
+      progress.value = 0;
+
+      try {
+        setStatus('正在生成帧序列…');
+        const prepared = prepareImageToFit(sourceImage, opts.width, opts.height, opts.maskMode, maskImage);
+        const frameCanvas = document.createElement('canvas');
+        frameCanvas.width = opts.width;
+        frameCanvas.height = opts.height;
+        const fctx = frameCanvas.getContext('2d', { alpha: true });
+
+        const ffmpeg = await loadFFmpeg((v) => (progress.value = v));
+
+        for (let i = 0; i < opts.frames; i++) {
+          const t = i / opts.frames;
+          renderFrame(fctx, prepared, opts.width, opts.height, t, false);
+
+          const finalCanvas = document.createElement('canvas');
+          finalCanvas.width = opts.width;
+          finalCanvas.height = opts.height - opts.cropBottom;
+          const finalCtx = finalCanvas.getContext('2d', { alpha: true });
+          finalCtx.drawImage(frameCanvas, 0, 0, opts.width, opts.height - opts.cropBottom, 0, 0, opts.width, opts.height - opts.cropBottom);
+
+          const blob = await canvasToPngBlob(finalCanvas);
+          const data = new Uint8Array(await blob.arrayBuffer());
+          const name = `frame_${String(i).padStart(3, '0')}.png`;
+          await ffmpeg.writeFile(name, data);
+
+          const baseProgress = Math.round(((i + 1) / opts.frames) * 45);
+          progress.value = Math.max(progress.value, baseProgress);
+        }
+
+        setStatus('正在用 ffmpeg.wasm 编码 GIF…');
+        const filter = buildPaletteFilter(opts);
+        await ffmpeg.exec([
+          '-framerate',
+          String(opts.fps),
+          '-i',
+          'frame_%03d.png',
+          '-filter_complex',
+          filter,
+          '-loop',
+          '0',
+          'output.gif',
+        ]);
+
+        const out = await ffmpeg.readFile('output.gif');
+        const blob = new Blob([out.buffer], { type: 'image/gif' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        a.href = url;
+        a.download = `single-spin-${opts.dither}-${ts}.gif`;
+        a.click();
+
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        ffmpeg.terminate();
+        progress.value = 100;
+        setStatus(`导出完成：${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+      } catch (err) {
+        console.error(err);
+        setError(`导出失败：${err?.message || err}`);
+        setStatus('导出失败。');
+      } finally {
+        exportBtn.disabled = false;
+        renderBtn.disabled = false;
+      }
+    }
+
+    function handleMaskModeUI() {
+      const isCustom = maskModeInput.value === 'custom';
+      maskFileInput.disabled = !isCustom;
+      if (!isCustom) {
+        maskImage = null;
+        maskFileInput.value = '';
+      }
+    }
+
+    fileInput.addEventListener('change', async () => {
+      setError('');
+      const f = fileInput.files?.[0];
+      if (!f) return;
+      try {
+        sourceImage = await fileToImage(f);
+        startPreviewLoop();
+      } catch (e) {
+        setError('图片读取失败，请换一张图片。');
+      }
+    });
+
+    maskModeInput.addEventListener('change', () => {
+      handleMaskModeUI();
+      if (sourceImage) startPreviewLoop();
+    });
+
+    maskFileInput.addEventListener('change', async () => {
+      setError('');
+      const f = maskFileInput.files?.[0];
+      if (!f) {
+        maskImage = null;
+        if (sourceImage) startPreviewLoop();
+        return;
+      }
+      try {
+        maskImage = await fileToImage(f);
+        if (sourceImage) startPreviewLoop();
+      } catch (e) {
+        setError('蒙版图片读取失败，请换一张图片。');
+      }
+    });
+
+    renderBtn.addEventListener('click', () => {
+      if (!sourceImage) {
+        setError('请先选择一张图片。');
+        return;
+      }
+      if (maskModeInput.value === 'custom' && !maskImage) {
+        setError('当前为自定义蒙版，请先选择蒙版图片。');
+        return;
+      }
+      setError('');
+      startPreviewLoop();
+    });
+
+    exportBtn.addEventListener('click', async () => {
+      if (maskModeInput.value === 'custom' && !maskImage) {
+        setError('当前为自定义蒙版，请先选择蒙版图片。');
+        return;
+      }
+      await exportGif();
+    });
+
+    handleMaskModeUI();
+  </script>
+</body>
+
+</html>
