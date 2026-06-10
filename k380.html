@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>K380 Fn 锁</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #1f2937;
+        background: #f3f4f6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      main {
+        width: min(100%, 460px);
+        padding: 28px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.16);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+
+      p {
+        margin: 0;
+        line-height: 1.7;
+      }
+
+      .hint {
+        margin-top: 10px;
+        color: #64748b;
+        font-size: 14px;
+      }
+
+      .actions {
+        display: grid;
+        gap: 12px;
+        margin: 24px 0;
+      }
+
+      button {
+        width: 100%;
+        border: 0;
+        border-radius: 14px;
+        padding: 14px 16px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        color: #fff;
+        background: #2563eb;
+        transition: transform 0.15s ease, opacity 0.15s ease;
+      }
+
+      button:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      .lock {
+        background: #16a34a;
+      }
+
+      .unlock {
+        background: #ea580c;
+      }
+
+      .status {
+        min-height: 52px;
+        padding: 14px;
+        border-radius: 14px;
+        background: #e5e7eb;
+        white-space: pre-wrap;
+      }
+
+      .log {
+        margin-top: 12px;
+        padding-left: 18px;
+        color: #64748b;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color: #e5e7eb;
+          background: #020617;
+        }
+
+        main {
+          background: rgba(15, 23, 42, 0.94);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+        }
+
+        .hint,
+        .log {
+          color: #94a3b8;
+        }
+
+        .status {
+          background: #111827;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Logitech K380 Fn 锁</h1>
+      <p>通过 WebHID 直接向 K380 发送控制报告，切换 F1-F12 与多媒体键模式。</p>
+      <p class="hint">请使用支持 WebHID 的 Chrome / Edge 打开本页面，并在弹窗中选择 K380 设备。</p>
+
+      <section class="actions">
+        <button id="connectBtn" type="button">连接 K380</button>
+        <button id="lockBtn" class="lock" type="button" disabled>锁定 Fn：使用普通 F1-F12</button>
+        <button id="unlockBtn" class="unlock" type="button" disabled>解锁 Fn：使用键盘特殊功能</button>
+      </section>
+
+      <div id="status" class="status" role="status">正在检查 WebHID 支持状态……</div>
+      <ul id="log" class="log"></ul>
+    </main>
+
+    <script>
+      const K380_VENDOR_ID = 0x046d;
+      const K380_PRODUCT_ID = 0xb342;
+      const TARGET_USAGE = 0x0001;
+      const TARGET_USAGE_PAGE = 0xff00;
+      const REPORT_ID = 0x10;
+      const FKEYS_ON = new Uint8Array([0xff, 0x0b, 0x1e, 0x00, 0x00, 0x00]);
+      const FKEYS_OFF = new Uint8Array([0xff, 0x0b, 0x1e, 0x01, 0x00, 0x00]);
+
+      const connectBtn = document.querySelector("#connectBtn");
+      const lockBtn = document.querySelector("#lockBtn");
+      const unlockBtn = document.querySelector("#unlockBtn");
+      const statusEl = document.querySelector("#status");
+      const logEl = document.querySelector("#log");
+
+      let device = null;
+
+      function setStatus(message) {
+        statusEl.textContent = message;
+      }
+
+      function addLog(message) {
+        const item = document.createElement("li");
+        item.textContent = message;
+        logEl.prepend(item);
+      }
+
+      function hasTargetCollection(candidate) {
+        return candidate.collections.some(
+          (collection) =>
+            collection.usage === TARGET_USAGE &&
+            collection.usagePage === TARGET_USAGE_PAGE,
+        );
+      }
+
+      function isK380(candidate) {
+        return (
+          candidate.vendorId === K380_VENDOR_ID &&
+          candidate.productId === K380_PRODUCT_ID &&
+          hasTargetCollection(candidate)
+        );
+      }
+
+      function setConnected(nextDevice) {
+        device = nextDevice;
+        const connected = Boolean(device);
+        lockBtn.disabled = !connected;
+        unlockBtn.disabled = !connected;
+        connectBtn.textContent = connected ? "重新选择 K380" : "连接 K380";
+
+        if (connected) {
+          setStatus(`已选择：${device.productName || "Logitech K380"}\n正在自动锁定 Fn……`);
+          setFnLock(true).then(() => {
+            setStatus(`已连接并锁定 Fn。\n当前模式：普通 F1-F12`);
+          });
+        } else {
+          setStatus("尚未连接 K380，请先点击“连接 K380”。");
+        }
+      }
+
+      async function findAuthorizedDevice() {
+        const devices = await navigator.hid.getDevices();
+        return devices.find(isK380) || null;
+      }
+
+      async function requestDevice() {
+        const devices = await navigator.hid.requestDevice({
+          filters: [{ vendorId: K380_VENDOR_ID, productId: K380_PRODUCT_ID }],
+        });
+        return devices.find(isK380) || devices[0] || null;
+      }
+
+      async function chooseDevice() {
+        try {
+          const selected = await requestDevice();
+          if (!selected) {
+            setStatus("未选择设备。");
+            return;
+          }
+
+          if (!hasTargetCollection(selected)) {
+            addLog("已选择设备，但没有发现 K380 需要的 HID collection，仍会尝试发送报告。");
+          }
+
+          setConnected(selected);
+        } catch (error) {
+          setStatus(`选择设备失败：${error.message}`);
+        }
+      }
+
+      async function ensureDevice() {
+        if (!device) {
+          const authorized = await findAuthorizedDevice();
+          if (authorized) {
+            setConnected(authorized);
+          }
+        }
+
+        if (!device) {
+          throw new Error("请先连接 K380。");
+        }
+
+        if (!device.opened) {
+          await device.open();
+        }
+
+        return device;
+      }
+
+      async function setFnLock(locked) {
+        try {
+          const currentDevice = await ensureDevice();
+          await currentDevice.sendReport(REPORT_ID, locked ? FKEYS_ON : FKEYS_OFF);
+          const mode = locked ? "普通 F1-F12" : "键盘特殊功能";
+          setStatus(`注入成功！\n当前模式：${mode}`);
+          addLog(`${locked ? "锁定" : "解锁"} Fn 成功。`);
+        } catch (error) {
+          setStatus(`注入失败：${error.message}`);
+          addLog("如果设备已连接但仍失败，请关闭 Logitech Options / Logi Options+ 后重试，或重新插拔/重连键盘。");
+        }
+      }
+
+      function markUnsupported() {
+        connectBtn.disabled = true;
+        lockBtn.disabled = true;
+        unlockBtn.disabled = true;
+        setStatus("当前浏览器不支持 WebHID。请使用新版 Chrome 或 Edge 打开本页面。");
+      }
+
+      async function init() {
+        if (!("hid" in navigator)) {
+          markUnsupported();
+          return;
+        }
+
+        navigator.hid.addEventListener("connect", async () => {
+          const authorized = await findAuthorizedDevice();
+          if (authorized) {
+            setConnected(authorized);
+            addLog("检测到 K380 已连接。");
+          }
+        });
+
+        navigator.hid.addEventListener("disconnect", (event) => {
+          if (device && event.device === device) {
+            setConnected(null);
+            addLog("K380 已断开连接。");
+          }
+        });
+
+        const authorized = await findAuthorizedDevice();
+        if (authorized) {
+          setConnected(authorized);
+          addLog("已找到之前授权过的 K380。");
+        } else {
+          setConnected(null);
+        }
+      }
+
+      connectBtn.addEventListener("click", chooseDevice);
+      lockBtn.addEventListener("click", () => setFnLock(true));
+      unlockBtn.addEventListener("click", () => setFnLock(false));
+      init();
+    </script>
+  </body>
+</html>
