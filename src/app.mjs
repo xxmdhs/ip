@@ -257,6 +257,7 @@ class OcrApp extends HTMLElement {
     this.crophint = this.querySelector("[data-crophint]");
     this.zoombar = this.querySelector("[data-zoombar]");
     this.pct = this.querySelector("[data-pct]");
+    this.linesEl = this.querySelector("[data-lines]");
 
     this.querySelector('[data-act="pick"]').addEventListener("click", () => this.querySelector("[data-input]").click());
     this.querySelector("[data-input]").addEventListener("change", (e) => {
@@ -338,16 +339,32 @@ class OcrApp extends HTMLElement {
       d.addEventListener("click", (e) => {
         if (this._moved) return;
         e.stopPropagation();
-        this.selected = i;
-        this.paintOverlays();
-        this.paintSide();
+        this.select(i, { scrollSide: true });
       });
       this.olines.appendChild(d);
     });
   }
 
+  select(i, opts = {}) {
+    if (i === this.selected && !opts.scrollSide) return;
+    this.selected = i;
+    this.paintOverlays();
+    this.paintSide();
+    if (opts.scrollSide && i >= 0) {
+      requestAnimationFrame(() => {
+        const cont = this.linesEl;
+        const li = cont?.querySelector(`li[data-idx="${i}"]`);
+        if (!cont || !li) return;
+        const c = cont.getBoundingClientRect();
+        const r = li.getBoundingClientRect();
+        const target = cont.scrollTop + (r.top + r.height / 2) - (c.top + c.height / 2);
+        cont.scrollTo({ top: target, behavior: "smooth" });
+      });
+    }
+  }
+
   paintSide() {
-    const ul = this.querySelector("[data-lines]");
+    const ul = this.linesEl ?? this.querySelector("[data-lines]");
     const count = this.querySelector("[data-count]");
     ul.innerHTML = "";
     count.textContent = this.results.length ? `共 ${this.results.length} 行` : "";
@@ -362,6 +379,7 @@ class OcrApp extends HTMLElement {
     else if (!this.results.length) pushTip("暂无文字");
     this.results.forEach((r, i) => {
       const li = document.createElement("li");
+      li.dataset.idx = String(i);
       if (i === this.selected) li.classList.add("sel");
       const conf = document.createElement("span");
       conf.className = "conf";
@@ -369,9 +387,7 @@ class OcrApp extends HTMLElement {
       li.append(conf, document.createTextNode(r.text));
       li.title = "点击定位到图片";
       li.addEventListener("click", () => {
-        this.selected = i;
-        this.paintOverlays();
-        this.paintSide();
+        this.select(i);
       });
       ul.appendChild(li);
     });
@@ -565,9 +581,7 @@ class OcrApp extends HTMLElement {
             im.y >= r.box.y0 && im.y <= r.box.y1,
         );
         if (hit !== this.selected) {
-          this.selected = hit;
-          this.paintOverlays();
-          this.paintSide();
+          this.select(hit, { scrollSide: true });
         }
       }
     };
